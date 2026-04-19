@@ -1,0 +1,24 @@
+appId: com.voidstrike.c1airgame
+productName: Void Strike
+directories:
+  output: release
+  app: dist
+asar: true
+win:
+  icon: public/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Void Strike
+  installerLanguages: zh-CN
+extraResources:
+  - from: public/
+    to: public/

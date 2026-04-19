@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx vue-tsc *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vite *)",
+      "Bash(node -e ' *)",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git add *)"
+    ]
+  }
+}

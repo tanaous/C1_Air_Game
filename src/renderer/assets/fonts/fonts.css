@@ -1,0 +1,41 @@
+/**
+ * 游戏字体定义
+ * 运行 `node scripts/download-fonts.mjs` 下载 woff2 字体文件
+ * 如果字体文件不存在，将自动降级到系统等宽字体
+ */
+
+/* Orbitron — 主 UI 字体（分数、标题、菜单）*/
+@font-face {
+  font-family: 'Orbitron';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: local('Orbitron Regular'),
+       url('./Orbitron-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Orbitron';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: local('Orbitron Bold'),
+       url('./Orbitron-Bold.woff2') format('woff2');
+}
+
+/* Share Tech Mono — 数字显示字体（FPS、计分器）*/
+@font-face {
+  font-family: 'Share Tech Mono';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: local('Share Tech Mono'),
+       url('./ShareTechMono-Regular.woff2') format('woff2');
+}
+
+/* CSS 变量，便于全局引用 */
+:root {
+  --font-hud: 'Orbitron', 'Share Tech Mono', 'Courier New', monospace;
+  --font-score: 'Share Tech Mono', 'Orbitron', 'Courier New', monospace;
+  --font-title: 'Orbitron', 'Arial Black', sans-serif;
+}
