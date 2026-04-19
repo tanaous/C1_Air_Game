@@ -44,6 +44,7 @@ export class GameplayScene {
 
   private bossesDefeated = 0
   private warningTimer   = 0
+  private nextBossAt     = BOSS_INTERVAL  // 下一个Boss触发距离（相对，不受dist累计影响）
 
   // 音效节流状态
   private lastShotSfxTime  = 0
@@ -139,8 +140,9 @@ export class GameplayScene {
         }
       }
       if (this.boss?.active) {
-        this.boss.takeDamage(200)
+        const bossKilled = this.boss.takeDamage(200)
         this.explosions.spawnMedium(this.boss.position.x, this.boss.position.y)
+        if (bossKilled) this.onBossDefeated()
       }
     }
 
@@ -203,19 +205,12 @@ export class GameplayScene {
       this.prevBossPhase = bp
     }
     if (result.bossKilled && this.boss) {
-      this.scoring.onBossKilled(this.boss.scoreValue, this.boss.fightDuration)
-      this.explosions.spawnBoss(this.boss.position.x, this.boss.position.y)
-      audioManager.playSFX('boss_destroy')
-      audioManager.stopWarningAlarm()
-      this.warningAlarmOn = false
-      this.bossesDefeated++
-      if (this.boss.mesh) { this.scene.remove(this.boss.mesh); this.boss.mesh = null }
-      this.boss = null
-      this.prevBossPhase = -1
-      this.events.onBossState(false)
-      this.scrollMap.setBiome(this.bossesDefeated)
-      this.scrollMap.pauseDistance(false)  // 恢复距离累计，开始刷怪
-      audioManager.playBGM('gameplay')
+      this.onBossDefeated()
+    }
+    // cleanup 可能把 boss.active=false 但 this.boss 未置 null（spin bomb 击杀走上面路径）
+    // 双重保险：若 boss 已 inactive 但引用未清，在此清除
+    if (this.boss && !this.boss.active) {
+      this.onBossDefeated()
     }
     for (const p of result.collectedPowerUps) {
       this.applyPowerUp(p)
@@ -264,14 +259,11 @@ export class GameplayScene {
   }
 
   private updateBossLogic(dt: number, dist: number): void {
-    const bossNum = Math.floor(dist / BOSS_INTERVAL)
-
-    // Boss 已击杀，等待下一个触发
-    if (!this.boss && bossNum > this.bossesDefeated) {
-      // WARNING 阶段
+    // 用 nextBossAt 判断，避免 dist 绝对值受 boss 战时长影响
+    if (!this.boss && dist >= this.nextBossAt) {
       if (this.warningTimer <= 0) {
+        // 进入 WARNING 阶段
         this.warningTimer = WARNING_TIME
-        this.scrollMap.pauseDistance(true)   // 暂停距离累计，防止越过下一Boss阈值
         if (!this.warningAlarmOn) {
           audioManager.startWarningAlarm()
           this.warningAlarmOn = true
@@ -279,10 +271,30 @@ export class GameplayScene {
       } else {
         this.warningTimer -= dt
         if (this.warningTimer <= 0) {
+          this.warningTimer = 0
+          // 在 boss 出现时将下一个阈值推远，防止立刻再次触发
+          this.nextBossAt = dist + BOSS_INTERVAL
           this.spawnBoss(this.bossesDefeated)
         }
       }
     }
+  }
+
+  /** boss 战结束公共处理（无论什么方式击杀都走这里） */
+  private onBossDefeated(): void {
+    if (!this.boss) return
+    this.scoring.onBossKilled(this.boss.scoreValue, this.boss.fightDuration)
+    this.explosions.spawnBoss(this.boss.position.x, this.boss.position.y)
+    audioManager.playSFX('boss_destroy')
+    audioManager.stopWarningAlarm()
+    this.warningAlarmOn = false
+    this.bossesDefeated++
+    if (this.boss.mesh) { this.scene.remove(this.boss.mesh); this.boss.mesh = null }
+    this.boss = null           // ← 必须置 null，spawner 才能恢复
+    this.prevBossPhase = -1
+    this.events.onBossState(false)
+    this.scrollMap.setBiome(this.bossesDefeated)
+    audioManager.playBGM('gameplay')
   }
 
   private spawnBoss(index: number): void {
@@ -322,7 +334,7 @@ export class GameplayScene {
     }
     this.enemies.forEach(rm); this.playerBullets.forEach(rm)
     this.enemyBullets.forEach(rm); this.powerUps.forEach(rm)
-    if (this.boss && !this.boss.active) rm(this.boss)
+    // boss 已由 onBossDefeated() 统一清理，此处仅做安全兜底（不重复调用）
     this.enemies       = this.enemies.filter(e => e.active)
     this.playerBullets = this.playerBullets.filter(b => b.active)
     this.enemyBullets  = this.enemyBullets.filter(b => b.active)
