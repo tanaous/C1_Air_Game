@@ -1,5 +1,5 @@
 // Electron 生产构建 Vite 插件
-// 参考自 CubeVi/3DMonitor 开源项目，针对 Void Strike 游戏精简适配
+// 参考自 CubeVi/3DMonitor 开源项目，针对 C1战机 精简适配
 import type { Plugin } from 'vite'
 import * as electronBuilder from 'electron-builder'
 import path from 'path'
@@ -49,11 +49,14 @@ export const viteElectronBuild = (): Plugin => {
             const nmDir = path.resolve(process.cwd(), 'dist/node_modules')
             if (!fs.existsSync(nmDir)) fs.mkdirSync(nmDir)
 
+            // 仅在显式要求时打包安装包，避免开发期/校验期被平台权限阻塞
+            if (process.env.ELECTRON_PACKAGE !== '1') return
+
             // 使用 electron-builder 打包
             electronBuilder.build({
                 config: {
                     appId: 'com.voidstrike.c1airgame',
-                    productName: 'Void Strike',
+                    productName: 'C1战机',
                     directories: {
                         output: path.resolve(process.cwd(), 'release'),
                         app: path.resolve(process.cwd(), 'dist'),
@@ -66,7 +69,7 @@ export const viteElectronBuild = (): Plugin => {
                         allowToChangeInstallationDirectory: true,
                         createDesktopShortcut: true,
                         createStartMenuShortcut: true,
-                        shortcutName: 'Void Strike',
+                        shortcutName: 'C1战机',
                         installerLanguages: 'zh-CN',
                     },
                     win: {

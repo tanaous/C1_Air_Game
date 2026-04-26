@@ -252,6 +252,7 @@ export class AudioManager {
   private bgmGain:    GainNode    | null = null
   private enabled  = true
   private bgmEnabled = true
+  private muted = false
 
   masterVolume = 0.88
   sfxVolume    = 0.75
@@ -280,7 +281,7 @@ export class AudioManager {
   }
 
   private applyVolumes(): void {
-    if (this.masterGain) this.masterGain.gain.value = this.masterVolume
+    if (this.masterGain) this.masterGain.gain.value = this.muted ? 0 : this.masterVolume
     if (this.sfxGain)    this.sfxGain.gain.value    = this.sfxVolume
     if (this.bgmGain)    this.bgmGain.gain.value    = this.bgmVolume
   }
@@ -784,6 +785,8 @@ export class AudioManager {
 
   setEnabled(enabled: boolean): void    { this.enabled = enabled }
   setBGMEnabled(enabled: boolean): void { this.bgmEnabled = enabled; if (!enabled) this.stopBGM() }
+  setMuted(muted: boolean): void { this.muted = muted; this.applyVolumes() }
+  isMuted(): boolean { return this.muted }
 
   setVolumes(master: number, sfx: number, bgm: number): void {
     this.masterVolume = master; this.sfxVolume = sfx; this.bgmVolume = bgm

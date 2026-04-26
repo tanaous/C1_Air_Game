@@ -8,6 +8,7 @@ import type { PowerUp } from '@/game/entities/PowerUp'
 export interface CollisionResult {
   playerHit:        boolean
   killedEnemies:    Enemy[]
+  hitEnemies:       Enemy[]
   grazeCount:       number
   bossHit:          boolean
   bossKilled:       boolean
@@ -25,8 +26,10 @@ export class CollisionSystem {
   ): CollisionResult {
     const result: CollisionResult = {
       playerHit: false, killedEnemies: [], grazeCount: 0,
+      hitEnemies: [],
       bossHit: false, bossKilled: false, collectedPowerUps: [],
     }
+    const hitEnemySet = new Set<Enemy>()
 
     const px = player.position.x, py = player.position.y
 
@@ -37,7 +40,11 @@ export class CollisionSystem {
         if (!enemy.active) continue
         if (distance2D(bullet.position.x, bullet.position.y, enemy.position.x, enemy.position.y) < bullet.hitboxRadius + enemy.hitboxRadius) {
           bullet.destroy()
-          if (enemy.takeDamage(bullet.damage)) result.killedEnemies.push(enemy)
+          if (enemy.takeDamage(bullet.damage)) {
+            result.killedEnemies.push(enemy)
+          } else {
+            hitEnemySet.add(enemy)
+          }
           break
         }
       }
@@ -62,7 +69,8 @@ export class CollisionSystem {
       if (d < bullet.hitboxRadius + player.hitboxRadius) {
         bullet.destroy()
         if (player.hit()) result.playerHit = true
-      } else if (d < player.grazeRadius) {
+      } else if (!bullet.grazed && d < player.grazeRadius) {
+        bullet.grazed = true
         result.grazeCount++
       }
     }
@@ -84,6 +92,7 @@ export class CollisionSystem {
       }
     }
 
+    result.hitEnemies.push(...hitEnemySet)
     return result
   }
 }

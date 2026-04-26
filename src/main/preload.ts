@@ -1,59 +1,53 @@
-/**
- * Electron Preload 脚本
- * 通过 contextBridge 向渲染进程安全暴露主进程 API
- * 参考自 CubeVi/3DMonitor 开源项目
- */
-
 import { contextBridge, ipcRenderer } from 'electron'
-import type { DeviceParams, PipeStatus } from '../shared/types'
+import type { C1ControlCommand, C1Diagnostics, DeviceParams, PipeStatus } from '../shared/types'
 import { IPC_EVENTS } from '../shared/types'
 
-/**
- * 暴露给渲染进程的 API
- * 在渲染进程中通过 window.electronAPI 访问
- */
 contextBridge.exposeInMainWorld('electronAPI', {
-  /**
-   * 监听 C1 设备参数更新
-   * 当 OpenstageAI 管道返回新的光栅参数时触发
-   */
   onDeviceParamsUpdated: (callback: (params: DeviceParams) => void) => {
-    ipcRenderer.on(IPC_EVENTS.DEVICE_PARAMS_UPDATED, (_event, params: DeviceParams) => {
-      callback(params)
-    })
+    ipcRenderer.on(IPC_EVENTS.DEVICE_PARAMS_UPDATED, (_event, params: DeviceParams) => callback(params))
   },
 
-  /**
-   * 监听管道连接状态变化
-   */
   onPipeStatusChanged: (callback: (status: PipeStatus) => void) => {
-    ipcRenderer.on(IPC_EVENTS.PIPE_STATUS_CHANGED, (_event, status: PipeStatus) => {
-      callback(status)
-    })
+    ipcRenderer.on(IPC_EVENTS.PIPE_STATUS_CHANGED, (_event, status: PipeStatus) => callback(status))
   },
 
-  /**
-   * 主动请求刷新设备参数
-   */
   requestDeviceParams: () => {
     ipcRenderer.send(IPC_EVENTS.REQUEST_DEVICE_PARAMS)
   },
 
-  /**
-   * 移除所有监听器（组件卸载时调用）
-   */
+  sendC1Control: (command: C1ControlCommand) => {
+    ipcRenderer.send(IPC_EVENTS.C1_CONTROL, command)
+  },
+
+  onC1Control: (callback: (command: C1ControlCommand) => void) => {
+    ipcRenderer.on(IPC_EVENTS.C1_CONTROL, (_event, command: C1ControlCommand) => callback(command))
+  },
+
+  publishC1Diagnostics: (diagnostics: C1Diagnostics) => {
+    ipcRenderer.send(IPC_EVENTS.C1_DIAGNOSTICS, diagnostics)
+  },
+
+  onC1Diagnostics: (callback: (diagnostics: C1Diagnostics) => void) => {
+    ipcRenderer.on(IPC_EVENTS.C1_DIAGNOSTICS, (_event, diagnostics: C1Diagnostics) => callback(diagnostics))
+  },
+
   removeAllListeners: () => {
     ipcRenderer.removeAllListeners(IPC_EVENTS.DEVICE_PARAMS_UPDATED)
     ipcRenderer.removeAllListeners(IPC_EVENTS.PIPE_STATUS_CHANGED)
+    ipcRenderer.removeAllListeners(IPC_EVENTS.C1_CONTROL)
+    ipcRenderer.removeAllListeners(IPC_EVENTS.C1_DIAGNOSTICS)
   },
 })
 
-/** TypeScript 类型声明（在 renderer 进程中可获得 window.electronAPI 的类型提示）*/
 export type ElectronAPI = {
   onDeviceParamsUpdated: (callback: (params: DeviceParams) => void) => void
-  onPipeStatusChanged:   (callback: (status: PipeStatus) => void) => void
-  requestDeviceParams:   () => void
-  removeAllListeners:    () => void
+  onPipeStatusChanged: (callback: (status: PipeStatus) => void) => void
+  requestDeviceParams: () => void
+  sendC1Control: (command: C1ControlCommand) => void
+  onC1Control: (callback: (command: C1ControlCommand) => void) => void
+  publishC1Diagnostics: (diagnostics: C1Diagnostics) => void
+  onC1Diagnostics: (callback: (diagnostics: C1Diagnostics) => void) => void
+  removeAllListeners: () => void
 }
 
 declare global {

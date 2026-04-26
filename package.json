@@ -8,13 +8,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
+    "build:app": "npm run build && electron-builder",
     "preview": "vite preview"
   },
   "dependencies": {
+    "pinia": "^2.1.7",
     "three": "^0.166.1",
     "vue": "^3.4.0",
-    "vue-router": "^4.2.5",
-    "pinia": "^2.1.7"
+    "vue-router": "^4.2.5"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
@@ -23,9 +24,10 @@
     "electron": "^28.2.1",
     "electron-builder": "^26.0.0",
     "esbuild": "^0.20.0",
+    "playwright-core": "^1.59.1",
     "sass": "^1.69.7",
     "typescript": "^5.2.2",
     "vite": "^5.0.8",
-    "vue-tsc": "^1.8.25"
+    "vue-tsc": "^3.2.7"
   }
 }

@@ -6,3 +6,7 @@ dist-electron/
 .env
 .env.local
 release/
+reference/3DMonitor/node_modules/
+.claude/worktrees/
+.firecrawl/
+artifacts/

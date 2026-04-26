@@ -20,7 +20,7 @@
   font-style: normal;
   font-display: swap;
   src: local('Orbitron Bold'),
-       url('./Orbitron-Bold.woff2') format('woff2');
+       url('./Orbitron-Regular.woff2') format('woff2');
 }
 
 /* Share Tech Mono — 数字显示字体（FPS、计分器）*/

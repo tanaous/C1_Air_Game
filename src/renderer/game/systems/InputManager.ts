@@ -41,6 +41,9 @@ export class InputManager {
     return this.keyMap[action].some(k => this.pressed.has(k))
   }
 
+  isKeyHeldRaw(code: string): boolean { return this.held.has(code) }
+  isKeyPressedRaw(code: string): boolean { return this.pressed.has(code) }
+
   /** Call at end of each logic frame to clear just-pressed state */
   flush(): void {
     this.pressed.clear()

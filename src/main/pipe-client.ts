@@ -52,7 +52,8 @@ export class PipeClient extends EventEmitter {
 
     client.on('connect', () => {
       this.setStatus('connected')
-      console.log('[PipeClient] 已连接到 OpenstageAI')
+      console.log('[PipeClient] ✓ 已连接到 OpenstageAI 管道:',
+        PIPE_CONFIG.PIPE_PATH.replace('\\\\', '\\'))
       this.requestDeviceParams()
     })
 
@@ -88,6 +89,7 @@ export class PipeClient extends EventEmitter {
     }
 
     // 参考 background.ts: 先 getToken，再 getLabelList，再 getDeivice
+    console.log('[PipeClient] 发送请求: getToken → getLabelList → getDeivice')
     this.client.write(JSON.stringify({ ...baseParams, request_type: 'getToken' }))
     setTimeout(() => {
       this.client?.write(JSON.stringify({ ...baseParams, request_type: 'getLabelList' }))
@@ -147,12 +149,18 @@ export class PipeClient extends EventEmitter {
     }
 
     if (config && typeof config.obliquity === 'number') {
+      const responseData = response.response_data ?? response
       this.deviceParams = {
         obliquity:  config.obliquity,
         lineNumber: config.lineNumber,
         deviation:  config.deviation,
+        deviceId: config.deviceId ?? config.device_id ?? config.id ?? responseData.deviceId ?? responseData.device_id,
+        label: config.label ?? config.remark ?? responseData.label ?? responseData.remark,
       }
-      console.log('[PipeClient] 获取到光栅参数:', this.deviceParams)
+      console.log('[PipeClient] ✓ 获取到光栅参数:',
+        'slope=' + this.deviceParams.obliquity.toFixed(4) + ',',
+        'interval=' + this.deviceParams.lineNumber.toFixed(3) + ',',
+        'x0=' + this.deviceParams.deviation.toFixed(2))
       this.emit('deviceParams', this.deviceParams)
     }
   }

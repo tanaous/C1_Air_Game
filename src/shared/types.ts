@@ -1,15 +1,60 @@
-/**
- * 主进程与渲染进程共享的类型定义
- */
-
-/** C1 光栅参数（从 OpenstageAI 获取） */
 export interface DeviceParams {
-  obliquity: number   // slope  — 柱透镜倾斜角正切值（典型值 ~0.1057）
-  lineNumber: number  // interval — 柱透镜间距，亚像素单位（典型值 ~19.625）
-  deviation: number   // x0 — 水平起始偏移（每台设备独立校准）
+  /** Lenticular slope reported by OpenstageAI. */
+  obliquity: number
+  /** Lenticular interval in sub-pixel units. */
+  lineNumber: number
+  /** Per-device horizontal calibration offset. */
+  deviation: number
+  /** Optional device id returned by OpenstageAI, for diagnostics only. */
+  deviceId?: string
+  /** Optional display/device label returned by OpenstageAI. */
+  label?: string
 }
 
-/** OpenstageAI 平台响应结构 */
+export interface C1Diagnostics {
+  backing: string
+  client: string
+  css: string
+  window: string
+  dpr: number
+  c1Mode: boolean
+  parallax: number
+  atlas: string
+  output: string
+  grating: DeviceParams | null
+  projection?: string
+  viewOrder?: string
+  camera?: string
+  gameplayVisuals?: string
+  audioMuted?: boolean
+  debugInvincible?: boolean
+  safeFieldEnabled?: boolean
+  domOverlayHidden?: boolean
+  cameraRig?: CameraRigSettings
+  cameraPreset?: string
+  cameraAuto?: boolean
+}
+
+export interface CameraRigSettings {
+  pitchDeg: number
+  yawDeg: number
+  distance: number
+  targetX: number
+  targetY: number
+  targetZ: number
+}
+
+export type C1ControlCommand =
+  | { type: 'set-parallax'; value: number }
+  | { type: 'set-muted'; value: boolean }
+  | { type: 'set-invincible'; value: boolean }
+  | { type: 'set-safe-field'; value: boolean }
+  | { type: 'set-camera-rig'; value: Partial<CameraRigSettings> }
+  | { type: 'reset-camera-rig' }
+  | { type: 'set-camera-preset'; value: string }
+  | { type: 'set-camera-auto'; value: boolean }
+  | { type: 'request-diagnostics' }
+
 export interface PipeResponse {
   request_type: string
   response_data?: {
@@ -20,23 +65,18 @@ export interface PipeResponse {
   [key: string]: unknown
 }
 
-/** IPC 事件名称常量 */
 export const IPC_EVENTS = {
-  /** 主进程→渲染进程：C1 参数更新 */
   DEVICE_PARAMS_UPDATED: 'device-params-updated',
-  /** 主进程→渲染进程：连接状态变化 */
   PIPE_STATUS_CHANGED: 'pipe-status-changed',
-  /** 渲染进程→主进程：请求刷新参数 */
   REQUEST_DEVICE_PARAMS: 'request-device-params',
+  C1_CONTROL: 'c1-control',
+  C1_DIAGNOSTICS: 'c1-diagnostics',
 } as const
 
-/** Pipe 连接状态 */
 export type PipeStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
-/** 武器类型 */
 export type WeaponType = 'shot' | 'spread' | 'laser'
 
-/** 地貌类型 */
 export type BiomeType =
   | 'earth_plains'
   | 'earth_desert'
@@ -49,8 +89,6 @@ export type BiomeType =
   | 'space_blackhole'
   | 'space_final'
 
-/** 游戏状态 */
 export type GameState = 'title' | 'playing' | 'paused' | 'boss' | 'gameover' | 'transition'
 
-/** 难度设置 */
 export type Difficulty = 'easy' | 'normal' | 'hard'

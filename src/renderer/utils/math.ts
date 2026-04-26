@@ -67,8 +67,15 @@ export function depthToMultiplier(z: number): number {
  * @param focalDist 焦平面距离
  * @param totalAngleDeg 总视角范围（度）
  */
-export function viewCameraOffset(i: number, focalDist: number, totalAngleDeg: number): number {
-  const maxOffset = focalDist * Math.tan(degToRad(totalAngleDeg / 2))
-  const t = i / 39   // 0 ~ 1
-  return maxOffset * (t * 2 - 1)  // -maxOffset ~ +maxOffset
+export function viewCameraOffset(
+  i: number,
+  focalDist: number,
+  totalAngleDeg: number,
+  viewCount: number = 40,
+  parallaxBoost: number = 1,
+): number {
+  const maxOffset = focalDist * Math.tan(degToRad(totalAngleDeg / 2)) * parallaxBoost
+  const denom = Math.max(1, viewCount - 1)
+  const t = i / denom
+  return maxOffset * (t * 2 - 1)
 }

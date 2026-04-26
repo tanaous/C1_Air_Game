@@ -1,37 +1,39 @@
-/**
- * C1 多视角渲染器
- * 将游戏场景渲染为 C1 裸眼3D显示器可显示的交织图像
- *
- * 关键：交织着色器输出必须固定为 1440×2560 像素，
- *       与 C1 物理分辨率一一对应，否则像素-透镜映射错位。
- *       用 CSS 缩放 canvas 适配窗口大小。
- */
-
 import * as THREE from 'three'
-import { C1_DISPLAY, DEFAULT_GRATING_PARAMS } from '@/game/GameConfig'
+import { C1_DISPLAY } from '@/game/GameConfig'
 import { InterleavingShaderDef, updateInterleavingUniforms } from './InterleavingShader'
 import { MultiViewCamera } from './MultiViewCamera'
-import type { DeviceParams } from '@shared/types'
+import type { C1Diagnostics, DeviceParams } from '@shared/types'
 
 const {
-  OUTPUT_WIDTH, OUTPUT_HEIGHT,
-  VIEW_COLS, VIEW_ROWS, VIEW_COUNT,
-  SUB_WIDTH, SUB_HEIGHT,
+  OUTPUT_WIDTH,
+  OUTPUT_HEIGHT,
+  VIEW_COLS,
+  VIEW_ROWS,
+  VIEW_COUNT,
+  SUB_WIDTH,
+  SUB_HEIGHT,
 } = C1_DISPLAY
 
 export class C1Renderer {
   readonly renderer: THREE.WebGLRenderer
 
-  private multiViewTarget: THREE.WebGLRenderTarget
-  private blitScene: THREE.Scene
-  private blitCamera: THREE.OrthographicCamera
-  private interleavingMaterial: THREE.ShaderMaterial
-  private mvCamera: MultiViewCamera
+  private readonly canvas: HTMLCanvasElement
+  private readonly multiViewTarget: THREE.WebGLRenderTarget
+  private readonly blitScene: THREE.Scene
+  private readonly blitCamera: THREE.OrthographicCamera
+  private readonly blitQuad: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
+  private readonly interleavingMaterial: THREE.ShaderMaterial
+  private readonly mvCamera: MultiViewCamera
+  private deviceParams: DeviceParams | null = null
 
-  /** false = 单视角普通渲染（未连接 C1 时） */
-  c1Mode: boolean = true
+  c1Mode = false
+
+  get parallaxBoost(): number {
+    return this.mvCamera.parallaxBoost
+  }
 
   constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: false,
@@ -39,14 +41,9 @@ export class C1Renderer {
     })
     this.renderer.setPixelRatio(1)
     this.renderer.autoClear = false
-
-    // 固定 canvas 像素尺寸为 C1 物理分辨率
-    // CSS 负责缩放到窗口大小
     this.renderer.setSize(OUTPUT_WIDTH, OUTPUT_HEIGHT, false)
-    canvas.style.width  = '100%'
-    canvas.style.height = '100%'
+    this.fitCanvasToContainer()
 
-    // 多视角纹理图集: 8列 × 5行
     this.multiViewTarget = new THREE.WebGLRenderTarget(
       SUB_WIDTH * VIEW_COLS,
       SUB_HEIGHT * VIEW_ROWS,
@@ -55,58 +52,87 @@ export class C1Renderer {
         magFilter: THREE.LinearFilter,
         format: THREE.RGBAFormat,
         type: THREE.UnsignedByteType,
+        depthBuffer: true,
+        stencilBuffer: false,
       },
     )
 
-    // 全屏 blit 四边形 + 交织着色器
     this.interleavingMaterial = new THREE.ShaderMaterial({
       uniforms: {
         tDiffuse: { value: this.multiViewTarget.texture },
-        slope:    { value: DEFAULT_GRATING_PARAMS.slope },
-        interval: { value: DEFAULT_GRATING_PARAMS.interval },
-        x0:       { value: DEFAULT_GRATING_PARAMS.x0 },
+        slope: { value: InterleavingShaderDef.uniforms.slope.value },
+        interval: { value: InterleavingShaderDef.uniforms.interval.value },
+        x0: { value: InterleavingShaderDef.uniforms.x0.value },
       },
-      vertexShader:   InterleavingShaderDef.vertexShader,
+      vertexShader: InterleavingShaderDef.vertexShader,
       fragmentShader: InterleavingShaderDef.fragmentShader,
-      depthTest:  false,
+      depthTest: false,
       depthWrite: false,
     })
 
     this.blitCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
-    this.blitScene  = new THREE.Scene()
-    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.interleavingMaterial)
-    this.blitScene.add(quad)
-
+    this.blitScene = new THREE.Scene()
+    this.blitQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.interleavingMaterial)
+    this.blitScene.add(this.blitQuad)
     this.mvCamera = new MultiViewCamera()
   }
 
-  renderFrame(scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {
+  getDiagnostics(): C1Diagnostics {
+    return {
+      backing: `${this.canvas.width}x${this.canvas.height}`,
+      client: `${this.canvas.clientWidth}x${this.canvas.clientHeight}`,
+      css: `${this.canvas.style.width || 'auto'}x${this.canvas.style.height || 'auto'}`,
+      window: `${window.innerWidth}x${window.innerHeight}`,
+      dpr: window.devicePixelRatio,
+      c1Mode: this.c1Mode,
+      parallax: Math.round(this.mvCamera.parallaxBoost * 1000) / 1000,
+      atlas: `${SUB_WIDTH * VIEW_COLS}x${SUB_HEIGHT * VIEW_ROWS}`,
+      output: `${OUTPUT_WIDTH}x${OUTPUT_HEIGHT}`,
+      grating: this.deviceParams,
+    }
+  }
+
+  setParallaxBoost(value: number): void {
+    this.mvCamera.setParallaxBoost(value)
+  }
+
+  updateGratingParams(params: DeviceParams): void {
+    this.deviceParams = params
+    updateInterleavingUniforms(
+      this.interleavingMaterial.uniforms as typeof InterleavingShaderDef.uniforms,
+      params,
+    )
+  }
+
+  renderFrame(scene: THREE.Scene, camera: THREE.PerspectiveCamera | THREE.OrthographicCamera): void {
     if (!this.c1Mode) {
-      this.renderer.setRenderTarget(null)
-      this.renderer.setViewport(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
-      this.renderer.setScissorTest(false)
-      this.renderer.clear()
-      this.renderer.render(scene, camera)
+      this.renderSingleView(scene, camera)
       return
     }
 
-    const origX = camera.position.x
+    const origPosition = camera.position.clone()
+    const origQuaternion = camera.quaternion.clone()
+    const origUp = camera.up.clone()
+    const origFilmOffset = camera instanceof THREE.PerspectiveCamera ? camera.filmOffset : 0
 
-    // ── Phase 1: 渲染 40 个视角到纹理图集 ──
     this.renderer.setRenderTarget(this.multiViewTarget)
+    this.renderer.clear(true, true, false)
 
     for (let i = 0; i < VIEW_COUNT; i++) {
-      // 着色器中列索引是反转的: choice_vec.x = 8 - (choice%8) - 1
-      // choice=0 → 采样 col=7, choice=7 → 采样 col=0
-      // 所以渲染时也要反转列，让视角 i 落在着色器期望的位置
-      const col = (VIEW_COLS - 1) - (i % VIEW_COLS)
+      const col = i % VIEW_COLS
       const row = Math.floor(i / VIEW_COLS)
+      const viewOffset = this.mvCamera.getOffset(i)
 
-      camera.position.x = origX + this.mvCamera.getOffset(i)
+      camera.position.copy(origPosition)
+      camera.position.x += viewOffset
+      camera.quaternion.copy(origQuaternion)
+      if (camera instanceof THREE.PerspectiveCamera) {
+        this.mvCamera.applyOffAxisProjection(camera, viewOffset, origFilmOffset)
+      }
       camera.updateMatrixWorld()
 
       const vx = col * SUB_WIDTH
-      const vy = row * SUB_HEIGHT
+      const vy = (VIEW_ROWS - 1 - row) * SUB_HEIGHT
       this.renderer.setViewport(vx, vy, SUB_WIDTH, SUB_HEIGHT)
       this.renderer.setScissor(vx, vy, SUB_WIDTH, SUB_HEIGHT)
       this.renderer.setScissorTest(true)
@@ -114,10 +140,12 @@ export class C1Renderer {
       this.renderer.render(scene, camera)
     }
 
-    camera.position.x = origX
+    camera.position.copy(origPosition)
+    camera.quaternion.copy(origQuaternion)
+    camera.up.copy(origUp)
+    this.mvCamera.resetProjection(camera, origFilmOffset)
     camera.updateMatrixWorld()
 
-    // ── Phase 2: 交织后处理 → 屏幕 (固定 1440×2560) ──
     this.renderer.setRenderTarget(null)
     this.renderer.setScissorTest(false)
     this.renderer.setViewport(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
@@ -125,21 +153,38 @@ export class C1Renderer {
     this.renderer.render(this.blitScene, this.blitCamera)
   }
 
-  updateGratingParams(params: DeviceParams): void {
-    updateInterleavingUniforms(
-      this.interleavingMaterial.uniforms as typeof InterleavingShaderDef.uniforms,
-      params,
-    )
+  resize(_width: number, _height: number): void {
+    this.fitCanvasToContainer()
   }
 
-  /** C1 模式下不需要 resize — canvas 固定 1440×2560，CSS 缩放 */
-  resize(_width: number, _height: number): void {
-    // 不改变 renderer 像素尺寸，只让 CSS 处理缩放
+  fitCanvasToContainer(): void {
+    const container = this.canvas.parentElement
+    if (!container) return
+
+    const cw = container.clientWidth
+    const ch = container.clientHeight
+    if (cw <= 0 || ch <= 0) return
+
+    this.canvas.style.width = `${cw}px`
+    this.canvas.style.height = `${ch}px`
+    this.canvas.style.position = 'absolute'
+    this.canvas.style.left = '0'
+    this.canvas.style.top = '0'
   }
 
   dispose(): void {
     this.multiViewTarget.dispose()
     this.interleavingMaterial.dispose()
+    this.blitQuad.geometry.dispose()
     this.renderer.dispose()
+  }
+
+  private renderSingleView(scene: THREE.Scene, camera: THREE.PerspectiveCamera | THREE.OrthographicCamera): void {
+    this.mvCamera.resetProjection(camera)
+    this.renderer.setRenderTarget(null)
+    this.renderer.setScissorTest(false)
+    this.renderer.setViewport(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
+    this.renderer.clear()
+    this.renderer.render(scene, camera)
   }
 }
