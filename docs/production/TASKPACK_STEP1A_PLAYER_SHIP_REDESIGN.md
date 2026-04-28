@@ -1,5 +1,11 @@
 # TASKPACK Step 1A：主角飞船重设计
 
+## 0. 2026-04-29 状态
+
+- 玩家机已进入 C1-safe 实体 PBR 表现路线，并在当前主项目画面中通过多轮 C1 实机观察。
+- 本任务不再是当前唯一关键路径；当前关键路径切换到 [TASKPACK_STEP4_C1_EFFECT_RESTORE.md](E:\AI\C1_Air_Game\C1_Air_Game\docs\production\TASKPACK_STEP4_C1_EFFECT_RESTORE.md)。
+- 后续玩家机深化应保持已验证原则：厚实体体块、可读轮廓、受控局部发光、避免大面积透明层。
+
 ## 1. 任务目标
 
 将当前占位级玩家机体升级为可作为项目视觉标杆的 `PlayerShipV2`。

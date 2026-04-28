@@ -21,7 +21,7 @@ const SPIN_TOTAL = SPIN_RISE_TIME + SPIN_HANG_TIME + SPIN_FALL_TIME
 const SPIN_MAX_Z = 8
 const SPIN_COOLDOWN = 8
 const HIT_FEEDBACK_TIME = 0.24
-const USE_C1_SAFE_PLAYER_PROXY = true
+const USE_C1_SAFE_PLAYER_PROXY = false
 
 type PlayerVisualMaterial = THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial
 type PlayerStateMode = 'idle' | 'firing' | 'focus' | 'hit' | 'spin'
@@ -57,6 +57,8 @@ export class Player extends Entity {
   private engineCoreMats: PlayerVisualMaterial[] = []
   private energyMats: PlayerVisualMaterial[] = []
   private hullMats: PlayerVisualMaterial[] = []
+  private muzzleMats: PlayerVisualMaterial[] = []
+  private muzzleNodes: THREE.Mesh[] = []
   private cockpitMat: PlayerVisualMaterial | null = null
   private hullRimHandles: FresnelRimHandle[] = []
   private cockpitRimHandle: FresnelRimHandle | null = null
@@ -213,6 +215,7 @@ export class Player extends Entity {
     const engineSet = new Set<PlayerVisualMaterial>()
     const energySet = new Set<PlayerVisualMaterial>()
     const hullSet = new Set<PlayerVisualMaterial>()
+    const muzzleSet = new Set<PlayerVisualMaterial>()
     const rimSet = new Set<FresnelRimHandle>()
 
     this.mesh.traverse((obj) => {
@@ -222,6 +225,9 @@ export class Player extends Entity {
       const name = obj.name.toLowerCase()
       if (name.includes('engine_core')) {
         engineSet.add(obj.material)
+      } else if (name.includes('muzzle')) {
+        muzzleSet.add(obj.material)
+        this.muzzleNodes.push(obj)
       } else if (name.includes('rail') || name.includes('blade')) {
         energySet.add(obj.material)
       } else if (name.includes('cockpit')) {
@@ -242,6 +248,7 @@ export class Player extends Entity {
     this.engineCoreMats = [...engineSet]
     this.energyMats = [...energySet]
     this.hullMats = [...hullSet]
+    this.muzzleMats = [...muzzleSet]
     this.hullRimHandles = [...rimSet]
   }
 
@@ -255,6 +262,9 @@ export class Player extends Entity {
     const hitBoost = this.hitFeedbackTimer > 0 ? 1.35 + hitPulse * 0.4 : 1
     const spinBoost = spinning ? 1.24 : 1
     const pulse = 0.78 + Math.sin(this.visualTime * 14) * 0.22
+    const muzzlePulse = firing
+      ? 0.66 + Math.sin(this.visualTime * (this.weapon.current === 'laser' ? 24 : 46)) * 0.34
+      : 0
 
     this.visualState.firing = firing
     this.visualState.focusing = focusing
@@ -283,6 +293,28 @@ export class Player extends Entity {
       mat.emissive.setHex(this.hitFeedbackTimer > 0 ? 0x9fe2ff : focusing ? 0x49d4ff : 0x1e90ff)
       mat.color.setHex(this.hitFeedbackTimer > 0 ? 0xcff2ff : focusing ? 0x8ce2ff : 0x63bfff)
       mat.roughness = focusing ? 0.12 : 0.2
+    }
+
+    for (const mat of this.muzzleMats) {
+      mat.color.setHex(this.weapon.current === 'laser' ? 0x96f6ff : 0xfff0a8)
+      mat.emissive.setHex(this.weapon.current === 'laser' ? 0x21d4ff : 0xff7a1d)
+      const levelBoost = (this.weapon.level - 1) / 4
+      const weaponBoost = this.weapon.current === 'laser' ? 1.15 : this.weapon.current === 'spread' ? 0.95 : 0.75
+      mat.emissiveIntensity = firing ? (0.7 + muzzlePulse * 1.15 + levelBoost * 0.55) * weaponBoost : 0.08
+      mat.roughness = firing ? 0.16 : 0.32
+      mat.metalness = firing ? 0.55 : 0.35
+    }
+
+    const activeMuzzles = this.getActiveMuzzleMask()
+    for (let i = 0; i < this.muzzleNodes.length; i++) {
+      const node = this.muzzleNodes[i]
+      const active = activeMuzzles[i] ?? false
+      node.visible = spinning || (firing && active)
+      const base = i === 0 ? 0.84 : 0.66
+      const spinPulse = spinning ? 0.38 + Math.sin(this.visualTime * 20 + i) * 0.18 : 0
+      const levelScale = 0.78 + this.weapon.level * 0.055
+      const burst = firing && active ? (base + muzzlePulse * (i === 0 ? 0.46 : 0.34)) * levelScale : spinPulse
+      node.scale.set(0.84 + burst * 0.22, 0.8 + burst * 0.48, 0.82 + burst * 0.3)
     }
 
     if (this.cockpitMat) {
@@ -327,6 +359,25 @@ export class Player extends Entity {
       rim.setPower(spinning ? 2.4 : 2.9)
     }
   }
+
+  private getActiveMuzzleMask(): [boolean, boolean, boolean] {
+    const level = this.weapon.level
+    if (this.weapon.current === 'shot') {
+      if (level <= 1) return [true, false, false]
+      if (level === 2) return [false, true, true]
+      return [true, true, true]
+    }
+
+    if (this.weapon.current === 'laser') {
+      if (level <= 1) return [true, false, false]
+      if (level === 2 || level === 4) return [false, true, true]
+      return [true, true, true]
+    }
+
+    if (level <= 1) return [true, false, false]
+    if (level === 2) return [true, true, true]
+    return [true, true, true]
+  }
 }
 
 function buildPlayerMesh(): THREE.Group {
@@ -367,6 +418,15 @@ function buildC1SafePlayerProxy(): THREE.Group {
     new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.42, metalness: 0.5 }),
     mats.dark,
   ]
+  const muzzleGeo = new THREE.OctahedronGeometry(1, 0).scale(3.4, 8.2, 5.6)
+  const muzzleMat = new THREE.MeshStandardMaterial({
+    color: 0xffe28a,
+    roughness: 0.22,
+    metalness: 0.48,
+    emissive: 0xff6a1b,
+    emissiveIntensity: 0.08,
+    flatShading: true,
+  })
 
   addSafePlayerPart(
     group,
@@ -394,6 +454,14 @@ function buildC1SafePlayerProxy(): THREE.Group {
   )
   addSafePlayerPart(
     group,
+    'player_muzzle_main_c1',
+    muzzleGeo,
+    muzzleMat,
+    [0, 35, 17],
+    new THREE.Euler(-0.12, 0, 0),
+  )
+  addSafePlayerPart(
+    group,
     'player_armor_belly',
     new THREE.BoxGeometry(12, 22, 12),
     mats.dark,
@@ -416,6 +484,14 @@ function buildC1SafePlayerProxy(): THREE.Group {
       mats.rail,
       [9.5 * side, 4, 17],
       new THREE.Euler(0.06, 0, -0.05 * side),
+    )
+    addSafePlayerPart(
+      group,
+      `player_muzzle_${side < 0 ? 'l' : 'r'}_c1`,
+      muzzleGeo,
+      muzzleMat,
+      [12.5 * side, 24, 20],
+      new THREE.Euler(-0.08, 0.06 * side, -0.04 * side),
     )
     addSafePlayerPart(
       group,

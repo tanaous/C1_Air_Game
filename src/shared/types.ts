@@ -29,10 +29,58 @@ export interface C1Diagnostics {
   audioMuted?: boolean
   debugInvincible?: boolean
   safeFieldEnabled?: boolean
+  stage?: StageStatus
   domOverlayHidden?: boolean
   cameraRig?: CameraRigSettings
   cameraPreset?: string
   cameraAuto?: boolean
+  performance?: PerformanceDiagnostics
+  render?: RenderDiagnostics
+  scene?: SceneDiagnostics
+}
+
+export interface PerformanceDiagnostics {
+  fps: number
+  logicFps: number
+  frameMs: number
+  fpsTarget: number
+}
+
+export interface RenderDiagnostics {
+  views: number
+  calls: number
+  triangles: number
+  lines: number
+  points: number
+  geometries: number
+  textures: number
+  programs: number
+}
+
+export interface SceneDiagnostics {
+  objects: number
+  meshes: number
+  visibleMeshes: number
+  lights: number
+  materials: number
+  sourceTriangles: number
+  visibleTriangles: number
+  enemies: number
+  playerBullets: number
+  enemyBullets: number
+  powerUps: number
+  laserBeams: number
+  particles: number
+  bossActive: boolean
+  caps?: RuntimeCaps
+}
+
+export interface RuntimeCaps {
+  enemies: number
+  playerBullets: number
+  enemyBullets: number
+  powerUps: number
+  particles: number
 }
 
 export interface CameraRigSettings {
@@ -44,11 +92,29 @@ export interface CameraRigSettings {
   targetZ: number
 }
 
+export interface StageStatus {
+  index: number
+  number: number
+  name: string
+  biome: BiomeType
+  bossesDefeated: number
+  distance: number
+  nextBossAt: number
+  distanceToBoss: number
+  warning: boolean
+  bossActive: boolean
+  cleared: boolean
+}
+
 export type C1ControlCommand =
   | { type: 'set-parallax'; value: number }
   | { type: 'set-muted'; value: boolean }
   | { type: 'set-invincible'; value: boolean }
   | { type: 'set-safe-field'; value: boolean }
+  | { type: 'start-run' }
+  | { type: 'restart-run' }
+  | { type: 'skip-to-boss' }
+  | { type: 'advance-stage' }
   | { type: 'set-camera-rig'; value: Partial<CameraRigSettings> }
   | { type: 'reset-camera-rig' }
   | { type: 'set-camera-preset'; value: string }
@@ -89,6 +155,6 @@ export type BiomeType =
   | 'space_blackhole'
   | 'space_final'
 
-export type GameState = 'title' | 'playing' | 'paused' | 'boss' | 'gameover' | 'transition'
+export type GameState = 'title' | 'playing' | 'paused' | 'boss' | 'gameover' | 'clear' | 'transition'
 
 export type Difficulty = 'easy' | 'normal' | 'hard'

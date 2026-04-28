@@ -22,7 +22,8 @@ export type BossActionState =
   | 'breakdown'
 
 type BossSurfaceMaterial = THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial | THREE.MeshPhongMaterial
-const C1_SAFE_BOSS_PROXY = true
+const C1_SAFE_BOSS_PROXY = false
+const C1_FORCE_OPAQUE_BOSS_MATERIALS = true
 
 function isBossSurfaceMaterial(mat: THREE.Material): mat is BossSurfaceMaterial {
   return mat instanceof THREE.MeshStandardMaterial
@@ -332,8 +333,8 @@ export abstract class Boss extends Entity {
     this.weakPointExposure = cfg.weakPointExposure
 
     for (const mat of this.armorMats) {
-      mat.transparent = !C1_SAFE_BOSS_PROXY && cfg.armorOpacity < 0.99
-      mat.opacity = C1_SAFE_BOSS_PROXY ? 1 : cfg.armorOpacity
+      mat.transparent = !C1_FORCE_OPAQUE_BOSS_MATERIALS && !C1_SAFE_BOSS_PROXY && cfg.armorOpacity < 0.99
+      mat.opacity = C1_FORCE_OPAQUE_BOSS_MATERIALS || C1_SAFE_BOSS_PROXY ? 1 : cfg.armorOpacity
       if (mat instanceof THREE.MeshPhongMaterial) {
         mat.shininess = 35 + this.currentPhase * 8
       } else {

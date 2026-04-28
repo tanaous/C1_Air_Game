@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { C1_DISPLAY } from '@/game/GameConfig'
 import { InterleavingShaderDef, updateInterleavingUniforms } from './InterleavingShader'
 import { MultiViewCamera } from './MultiViewCamera'
-import type { C1Diagnostics, DeviceParams } from '@shared/types'
+import type { C1Diagnostics, DeviceParams, RenderDiagnostics } from '@shared/types'
 
 const {
   OUTPUT_WIDTH,
@@ -25,6 +25,16 @@ export class C1Renderer {
   private readonly interleavingMaterial: THREE.ShaderMaterial
   private readonly mvCamera: MultiViewCamera
   private deviceParams: DeviceParams | null = null
+  private lastRender: RenderDiagnostics = {
+    views: 1,
+    calls: 0,
+    triangles: 0,
+    lines: 0,
+    points: 0,
+    geometries: 0,
+    textures: 0,
+    programs: 0,
+  }
 
   c1Mode = false
 
@@ -41,6 +51,7 @@ export class C1Renderer {
     })
     this.renderer.setPixelRatio(1)
     this.renderer.autoClear = false
+    this.renderer.info.autoReset = false
     this.renderer.setSize(OUTPUT_WIDTH, OUTPUT_HEIGHT, false)
     this.fitCanvasToContainer()
 
@@ -89,7 +100,12 @@ export class C1Renderer {
       atlas: `${SUB_WIDTH * VIEW_COLS}x${SUB_HEIGHT * VIEW_ROWS}`,
       output: `${OUTPUT_WIDTH}x${OUTPUT_HEIGHT}`,
       grating: this.deviceParams,
+      render: this.getRenderDiagnostics(),
     }
+  }
+
+  getRenderDiagnostics(): RenderDiagnostics {
+    return { ...this.lastRender }
   }
 
   setParallaxBoost(value: number): void {
@@ -105,8 +121,11 @@ export class C1Renderer {
   }
 
   renderFrame(scene: THREE.Scene, camera: THREE.PerspectiveCamera | THREE.OrthographicCamera): void {
+    this.renderer.info.reset()
+
     if (!this.c1Mode) {
       this.renderSingleView(scene, camera)
+      this.captureRenderDiagnostics(1)
       return
     }
 
@@ -151,6 +170,7 @@ export class C1Renderer {
     this.renderer.setViewport(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
     this.renderer.clear()
     this.renderer.render(this.blitScene, this.blitCamera)
+    this.captureRenderDiagnostics(VIEW_COUNT)
   }
 
   resize(_width: number, _height: number): void {
@@ -186,5 +206,19 @@ export class C1Renderer {
     this.renderer.setViewport(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
     this.renderer.clear()
     this.renderer.render(scene, camera)
+  }
+
+  private captureRenderDiagnostics(views: number): void {
+    const info = this.renderer.info
+    this.lastRender = {
+      views,
+      calls: info.render.calls,
+      triangles: info.render.triangles,
+      lines: info.render.lines,
+      points: info.render.points,
+      geometries: info.memory.geometries,
+      textures: info.memory.textures,
+      programs: info.programs?.length ?? 0,
+    }
   }
 }

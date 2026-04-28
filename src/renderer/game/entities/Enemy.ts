@@ -8,7 +8,7 @@ import { buildEnemyShip } from './enemy-ship/EnemyShipFactory'
 export type EnemyType = 'scout' | 'fighter' | 'swooper' | 'gunship' | 'bomber' | 'carrier'
 
 type EnemySurfaceMaterial = THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial
-const USE_C1_SAFE_ENEMY_PROXY = true
+const USE_C1_SAFE_ENEMY_PROXY = false
 
 interface EnemyConfig {
   hp: number

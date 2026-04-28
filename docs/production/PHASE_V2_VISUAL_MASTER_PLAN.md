@@ -1,5 +1,19 @@
 # V2 Visual Upgrade Master Plan
 
+## 0. 2026-04-29 路线修订
+
+经过 C1 实机调试后，当前研发顺序调整为“效果恢复优先”。原因是显示链路已经验证，主风险不再是单个模型是否足够精细，而是不同效果机制是否会破坏 C1 融合。
+
+当前已确认：
+
+- C1 renderer、在线设备参数、全屏输出、普通屏 debug 窗口稳定。
+- 正常 Three.js 3D 游戏画面通过 C1 输出是正确路线。
+- 轻微 3/4 视角和事件驱动相机导演能增强立体感。
+- 大面积透明平面、全屏闪烁、模糊型后处理仍属于高风险机制。
+- opaque PBR 实体几何、受控实体粒子、C1-safe HUD、局部 additive glow、短局部拖尾已通过实机确认。
+
+接下来每次只引入一种新的效果机制。机制被用户确认稳定后，再把同类覆盖范围批量恢复；不要把玩法功能、最终背景美术和新渲染机制混在同一次检查点里。
+
 ## 1. 目标
 
 本阶段目标是在不破坏当前 C1 多视角渲染链路稳定性的前提下，系统性提升玩家飞船、非 Boss 敌人、Boss、地形与战斗特效的三维表现力。
@@ -76,13 +90,15 @@
 
 ## 5. 首批正式执行顺序
 
-1. 先执行 [TASKPACK_STEP1A_PLAYER_SHIP_REDESIGN.md](E:\AI\C1_Air_Game\C1_Air_Game\docs\production\TASKPACK_STEP1A_PLAYER_SHIP_REDESIGN.md)
-2. 再执行 [TASKPACK_STEP1_PLAYER_ENEMIES.md](E:\AI\C1_Air_Game\C1_Air_Game\docs\production\TASKPACK_STEP1_PLAYER_ENEMIES.md)
-3. 玩家飞船方案验证通过后，再扩展到 Boss 与地形。
+1. 当前执行 [TASKPACK_STEP4_C1_EFFECT_RESTORE.md](E:\AI\C1_Air_Game\C1_Air_Game\docs\production\TASKPACK_STEP4_C1_EFFECT_RESTORE.md)
+2. 保持 [08_C1_CONTENT_MODELING_GUIDE.md](E:\AI\C1_Air_Game\C1_Air_Game\docs\08_C1_CONTENT_MODELING_GUIDE.md) 中的 C1 约束为最高优先级。
+3. 效果层恢复接近完整画面形态后，再回到玩家机、敌机、Boss、地形的最终美术深化任务。
+4. 背景 biome 主题表达不足已经列入后续增强，不作为当前效果恢复阻塞项。
 
 ## 6. 参考与配套文档
 
 - 总方案：[06_PLAYER_SHIP_REDESIGN_PLAN.md](E:\AI\C1_Air_Game\C1_Air_Game\docs\06_PLAYER_SHIP_REDESIGN_PLAN.md)
 - 执行看板：[PARALLEL_EXECUTION_BOARD.md](E:\AI\C1_Air_Game\C1_Air_Game\docs\production\PARALLEL_EXECUTION_BOARD.md)
+- 效果恢复任务卡：[TASKPACK_STEP4_C1_EFFECT_RESTORE.md](E:\AI\C1_Air_Game\C1_Air_Game\docs\production\TASKPACK_STEP4_C1_EFFECT_RESTORE.md)
 - 主角飞船任务卡：[TASKPACK_STEP1A_PLAYER_SHIP_REDESIGN.md](E:\AI\C1_Air_Game\C1_Air_Game\docs\production\TASKPACK_STEP1A_PLAYER_SHIP_REDESIGN.md)
 - 敌机任务卡：[TASKPACK_STEP1_PLAYER_ENEMIES.md](E:\AI\C1_Air_Game\C1_Air_Game\docs\production\TASKPACK_STEP1_PLAYER_ENEMIES.md)

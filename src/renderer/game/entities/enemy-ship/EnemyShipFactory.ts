@@ -20,6 +20,7 @@ function addMesh(
   mesh.scale.set(scale.x, scale.y, scale.z)
   mesh.castShadow = false
   mesh.receiveShadow = false
+  mesh.frustumCulled = false
   group.add(mesh)
   return mesh
 }

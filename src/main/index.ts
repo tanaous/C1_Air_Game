@@ -155,12 +155,14 @@ function createDebugWindow(c1Display: Electron.Display): void {
 
   const display = findDebugDisplay(c1Display)
   const area = display.workArea
+  const marginX = 40
+  const height = Math.min(area.height - 40, Math.max(640, Math.round(area.height * 0.8)))
+  const y = area.y + Math.max(20, Math.floor((area.height - height) / 2))
   const width = Math.min(980, Math.max(640, area.width - 80))
-  const height = Math.min(860, Math.max(520, area.height - 80))
 
   debugWindow = new BrowserWindow({
-    x: area.x + 40,
-    y: area.y + 40,
+    x: area.x + marginX,
+    y,
     width,
     height,
     show: false,
@@ -196,7 +198,7 @@ function createDebugWindow(c1Display: Electron.Display): void {
     debugWindow = null
   })
 
-  console.log(`[Main] dev debug window: ${width}x${height} @ ${area.x + 40},${area.y + 40}`)
+  console.log(`[Main] dev debug window: ${width}x${height} @ ${area.x + marginX},${y}`)
 }
 
 function bringDebugWindowToFront(): void {

@@ -255,7 +255,33 @@ export function buildPlayerShipV2(): THREE.Group {
     new THREE.Euler(0.14, 0.07, -0.28),
   )
 
+  const muzzleGeo = new THREE.OctahedronGeometry(1, 0).scale(2.2, 5.8, 3.8)
+  const muzzleMat = new THREE.MeshStandardMaterial({
+    color: 0xffe28a,
+    roughness: 0.22,
+    metalness: 0.48,
+    emissive: 0xff6a1b,
+    emissiveIntensity: 0.08,
+    flatShading: true,
+  })
+  addMesh(
+    group,
+    'player_muzzle_main_c1',
+    muzzleGeo,
+    muzzleMat,
+    { x: 0, y: 22.4, z: 2.1 },
+    new THREE.Euler(-0.12, 0, 0),
+  )
+  addSymmetricMesh(
+    group,
+    'player_muzzle_c1',
+    muzzleGeo,
+    muzzleMat,
+    { x: 7.6, y: 13.8, z: 1.9 },
+    new THREE.Euler(-0.08, 0.06, -0.04),
+  )
+
   applySmoothShading(group)
-  group.scale.setScalar(0.5)
+  group.scale.setScalar(0.68)
   return group
 }

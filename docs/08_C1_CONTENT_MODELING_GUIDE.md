@@ -204,6 +204,25 @@ Effects should be C1-safe:
 - Lasers should not be giant transparent planes in final C1 mode; use segmented cylinders or solid beam chunks.
 - Screen flashes and DOM overlays should stay out of the C1 output or be extremely restrained.
 
+## Event Presentation Pass
+
+Use event-driven visual emphasis before adding more continuous decoration. Continuous camera or effect drift can make the image feel busy without improving the player's read of the 3D scene.
+
+Current implementation direction:
+
+- Boss warning: a one-shot top-field beacon made from opaque red/gold 3D chunks.
+- Boss intro: a short violet/cyan spatial burst at the Boss target position, not a full-screen overlay.
+- Boss phase change: a compact ring/core burst that marks state change without hiding bullets.
+- Boss defeat: a heavier multi-shape opaque burst, still capped by the global C1-safe particle budget.
+- Stage transition: a short opaque 3D gate pulse in the C1-safe field, using permanent hidden geometry instead of allocating large transient overlays.
+- Power-up drop/collect: small type-colored solid bursts, shared material pools, no per-event material allocation.
+- Laser impact: the beam stops at the first hit target and adds a solid cap; laser does not pierce targets.
+
+Status:
+
+- Bullet, muzzle, power-up, and non-piercing laser passes have been physically checked by the user and did not break C1 fusion.
+- Boss warning/intro/phase/defeat plus stage transition gate pass is implemented and requires the next physical C1 check.
+
 ## Validation Method
 
 Every new visual system should pass this order:
@@ -229,6 +248,62 @@ The current depth-rich gameplay baseline is validated as visibly 3D by the user:
 - Gameplay camera uses slight 3/4 top-down pitch.
 - Player probe and scrolling anchors are thick opaque PBR boxes with high-contrast face patterns.
 
+## Runtime Performance Gates
+
+The ordinary-screen debug window is now the required development dashboard. When building stages or adding visual detail, watch these metrics continuously:
+
+- FPS and frame time.
+- C1 actual draw calls and rendered triangles.
+- Scene objects, meshes, materials, and visible source triangles.
+- Gameplay counts: enemies, player bullets, enemy bullets, powerups, laser beams, and Boss state.
+
+C1 mode renders many views per frame, so a small increase in mesh count can be multiplied across the full multi-view pass. Treat visible mesh count and draw calls as first-class design constraints, not late optimization details.
+
+Current visual performance target:
+
+- `30 FPS` is acceptable for this C1 project.
+- Temporary dips to about `20 FPS` are acceptable during bursts, transitions, or heavy Boss moments.
+- If another application on the development machine is using more than about `30%` GPU, do not use FPS or frame time as a development judgement signal for that session. Continue watching draw calls, triangles, mesh counts, and object counts instead.
+
+Current caution thresholds:
+
+```text
+FPS:              warn below 30, critical below 20
+frame time:       warn above 33.4ms, critical above 50ms
+draw calls:       warn above 5,000, critical above 9,000
+render triangles: warn above 3,000,000, critical above 6,000,000
+visible meshes:   warn above 180, critical above 280
+visible tris:     warn above 70,000, critical above 120,000
+```
+
+If a stage crosses caution thresholds, prefer changing the content strategy before adding more effects:
+
+- Reuse geometries and materials.
+- Merge or instance repeated set dressing.
+- Reduce active bullet counts before increasing bullet detail.
+- Keep C1-safe objects chunky and readable rather than numerous and tiny.
+- Add richer Boss/player geometry only after ordinary wave scenes stay stable.
+
+Current runtime caps keep runaway scenes inside a predictable budget:
+
+```text
+active enemies:       28
+player bullets:       160
+enemy bullets:        260
+powerups:             36
+C1-safe particles:    120
+full effect particles:260
+```
+
+These caps are safety rails, not final balancing targets. If gameplay feels sparse, adjust wave composition and bullet readability before raising caps.
+
+Progression rewards are intentionally low-cost for C1 rendering:
+
+- Small enemies use a lightweight weighted drop table biased toward score gems.
+- Medium enemies have a higher chance of upgrades, large gems, bombs, and rare lives.
+- Boss kills grant a compact reward pack with guaranteed weapon progression and score value.
+- Reward counts still obey the runtime powerup cap, so late-stage reward bursts cannot overload the scene.
+
 ## Current Delivery Direction
 
 As of 2026-04-27 the default game path uses C1 fusion-safe gameplay visuals. The full gameplay logic stays active, but the risky visual systems are disabled or replaced with stable proxy geometry:
@@ -239,8 +314,90 @@ As of 2026-04-27 the default game path uses C1 fusion-safe gameplay visuals. The
 - A separate `C1SafeField` layer provides scrolling stage dressing through discrete opaque PBR boxes, gates, ribs, and markers. It replaces the old large terrain plane while preserving distance progression and biome transitions.
 - Player, enemies, Bosses, bullets, pickups, lasers, and explosions use mostly opaque, thick, high-contrast proxy geometry.
 - Distance progression continues through the safe field, so wave spawning and Boss timing still work.
+- Dev diagnostics now include stage number, biome, distance, and distance-to-Boss. The ordinary-screen debug window can start/restart a run, skip directly to the current Boss, or advance the stage/biome for fast physical C1 validation.
 - Auto camera remains event-driven and returns to baseline after input/event pulses.
 - Graze scoring is one-shot per bullet to avoid runaway score inflation.
 - Laser frame geometry is explicitly released every frame to prevent long-session leaks.
 
-Delivery validation should focus on this fusion-safe real gameplay path first. Once it is stable on the physical C1, reintroduce richer visual systems one at a time: player detail, enemies, Boss detail, terrain, scene HUD, particles, then transparent effects last.
+## Current R&D Priority
+
+The project is now back on an effect-first track. The goal is to make the C1-safe real gameplay path look compelling before adding deeper gameplay systems.
+
+Confirmation must be grouped by technical implementation span, not by tiny content details. Once one mechanism is physically confirmed on the C1, continue restoring the rest of that mechanism's visual coverage without stopping for every small variant. Stop for user confirmation when the rendering technique changes.
+
+Current restoration tiers:
+
+1. Opaque PBR geometry and lights: player, enemies, Bosses, solid bullets, solid pickups, solid particle chunks.
+2. Opaque scene set dressing: C1-safe field, biome dressing, stage progression objects, Boss presentation geometry.
+3. Higher-risk visual mechanisms: transparent surfaces, large overlays, screen-space flashes, blur/bloom/post effects, full scene HUD in C1 output.
+4. Only after the visual baseline feels complete and stable: deeper gameplay systems, balancing, additional scoring depth, and final stage logic.
+
+Rules for this effect-first pass:
+
+- Preserve the validated C1 display pipeline.
+- Add effects in increments based on technical mechanism risk.
+- Inside an already-confirmed mechanism, restore breadth quickly instead of polishing isolated details.
+- Prefer opaque segmented geometry over full-screen transparent planes until the opaque baseline is complete.
+- Watch debug draw calls, visible meshes, and render triangles, but do not treat FPS as decisive when the development machine has external GPU load.
+
+The first effect-first pass replaces the old single-piece laser with a segmented C1-safe beam. It uses shared geometry, alternating PBR materials, and small Z offsets so the beam has readable volume without returning to risky transparent full-height planes.
+
+The second effect-first pass changes ordinary bullets from simple boxes to single-mesh faceted solid projectiles. This improves depth readability without increasing object count or relying on transparent trails.
+
+The third effect-first pass adds C1-safe muzzle feedback as fixed solid player-ship geometry. The muzzle nodes scale and brighten while firing, so weapon feedback improves without spawning transient transparent flashes.
+
+The fourth effect-first pass broadens the weapon-feedback shape within the same already-validated mechanism: stronger fixed muzzle geometry, short capped solid muzzle particles, and small safe Z offsets across shot/spread bullet formations. Confirmation checkpoints should now be based on mechanism risk rather than every tiny asset tweak: keep moving inside opaque PBR geometry and capped particles, but stop for physical C1 validation when changing renderer, camera model, transparency/post effects, particle strategy, instancing, or other rendering mechanisms.
+
+Follow-up design correction: weapon feedback must match the weapon's actual logic and level. Level-1 Shot/Laser should read as one central firing point with restrained muzzle particles; side muzzles become active only when that weapon level actually implies side fire or multiple beams. Stable C1 output is not enough if the visual language contradicts the gameplay rules.
+
+The fifth effect-first pass improves enemy and Boss hit feedback within the same safe mechanism. Enemy hits now get a short solid impact core plus directional sparks; enemy kills add a small solid burst core and four-way chunks; Boss hits use a dedicated capped solid impact burst instead of a tiny generic spark.
+
+Laser design correction: the laser is a sustained beam weapon, not a piercing weapon. Each beam only damages the closest valid target along its lane, and the visual segmented beam is truncated at that target with a solid impact cap. This keeps weapon behavior readable and prevents the beam from implying impossible penetration.
+
+Player event feedback correction: player hit and spin/bomb effects use their own blue-white guard visuals instead of reusing medium enemy or Boss destruction explosions. This keeps the visual language readable: player damage looks like shield impact, spin/bomb looks like a defensive burst, and Boss destruction remains reserved for actual Boss kills.
+
+Power-up feedback pass: drops, attraction, and collection now have C1-safe solid feedback. Power-ups remain opaque chunky objects, gain stronger rotation/scale when pulled toward the player, emit a small solid spawn burst on drop, and emit a short color-coded collection burst on pickup. Valuable pickups use stronger but still capped feedback.
+
+Stage transition presentation pass: biome transitions now include a short C1-safe stage gate pulse. The gate is permanent hidden geometry in `C1SafeField`, becomes visible only during stage transition, moves through the playfield as thick opaque PBR pieces, then hides again. This makes Boss defeat -> next area progression more readable without introducing a new rendering mechanism.
+
+Layer-1 restoration pass: player, enemy, and Boss visuals have been moved from simplified C1-safe proxies back to the real procedural PBR model factories. This is still kept inside the opaque PBR mechanism: player canopy and Boss weak-point materials are forced opaque, rich ship meshes disable frustum culling, and fixed player muzzle nodes are retained on the restored player model. This pass is the next physical C1 checkpoint: confirm whether complex opaque procedural models preserve fusion before restoring higher-risk transparent or screen-space effects.
+
+Layer-2 restoration pass: the C1-safe field now restores broader biome set dressing inside the same opaque PBR mechanism. Each biome has a distinct solid-geometry visual vocabulary: plains posts, desert obelisks, ocean pylons, volcanic vents, ruins, orbital panels, deep-space crystals, asteroid masses, black-hole spokes, and final monoliths. Stage transitions rebuild this active biome dressing at the transition start, so the next area reads as a real environment change without using transparent overlays, terrain sheets, bloom, or post effects. This is the next physical C1 checkpoint after Layer 1 is stable: confirm whether denser opaque scene dressing preserves fusion and stays within debug mesh/draw-call budgets.
+
+Layer-2 perceptibility correction: the first biome dressing pass was technically present but not visually noticeable on the physical C1 because the objects were too small, too side-biased, and too fragmentary. The safe field now uses larger repeated biome signature rows near the playfield center, with only a few side motifs as secondary detail. Each row carries the biome identity through readable silhouettes and depth: plains patchwork/towers, desert dune bands/obelisk, ocean platform chains, volcanic plates/lava cracks, ruins floor/columns, orbital panel banks, deep-space crystal clusters, asteroid masses/rails, black-hole ring/spokes, and final-zone monolith corridors. This is still the same confirmed opaque PBR geometry mechanism; it is a visibility correction for effect restoration, not a final art-direction solution and not a renderer change.
+
+Boss attack telegraph restoration: the original full-screen transparent warning lane remains disabled in the C1-safe path. It has been replaced by a permanent hidden opaque PBR telegraph group in `GameplayScene`, shown only during Boss aim/charge/attack states. The group uses a core lock, two charge rails, a cross brace, and segmented lane markers that expand with `Boss.getTelegraphStrength()`. This restores player-readable Boss attack anticipation without adding transparent planes, screen-space flashes, blur, or post-processing.
+
+Combat event feedback batch: after the Boss telegraph mechanism was confirmed stable, the same opaque geometry particle mechanism was applied across related combat events instead of restoring each tiny case separately. Enemy and Boss bullet emissions now trigger throttled solid muzzle bursts; graze events add a small blue-white solid edge spark near the player; bullet clears from bomb actions or bomb pickups add a compact solid cancellation burst. Spin/bomb landing still uses its existing dedicated guard burst and suppresses duplicate clear feedback. This pass stays inside the confirmed C1-safe particle budget and does not introduce transparent trails, additive planes, or new post effects.
+
+Wave and progression feedback batch: the same confirmed opaque particle mechanism now covers enemy/wave entrance and stage progression events. Newly spawned waves emit one compact group arrival pulse plus a capped number of individual enemy arrival sparks; heavier enemies get a slightly stronger arrival core. Boss defeat, manual stage advance, and campaign clear add compact stage-advance bursts in addition to the existing C1-safe field gate. These are intentionally event-triggered rather than continuous decoration, so they improve progression readability without creating constant visual noise or changing the renderer.
+
+Player resource feedback batch: weapon switches, weapon upgrades, laser overheat, extra-life activation, and bomb pickup activation now have compact solid feedback near the player craft. Pickup collection still shows feedback at the pickup position, while the gameplay effect shows a separate activation burst at the player. This keeps resource changes readable on the C1 without adding DOM overlays, screen-space UI in the C1 output, transparent rings, or new shader effects.
+
+Bullet visual hierarchy pass: enemy bullet patterns now use distinct opaque single-mesh projectile bodies instead of sharing one generic red bullet. Aimed/stream shots use elongated faceted bolts; fan shots use sharper tetra forms; rings use rounded dodeca bodies; curtains/cross patterns use slab-like chunks; spiral/rose/helix patterns use rotating elongated facets; Boss bullets use a brighter, thicker pressure projectile. This changes only the visual body and material language, not the bullet trajectories, hitboxes, rates, or gameplay rules.
+
+Player projectile visual pass: Shot and Spread bullets now also carry separate opaque single-mesh projectile visuals. Shot uses a sharper blue-white faceted bolt with slight damage-based scale emphasis; Spread uses a shorter green blade-like projectile with stronger rotation. Laser remains the already-validated segmented solid beam. This restores weapon identity in the projectile layer without changing fire patterns, hitboxes, damage, or introducing transparent trails.
+
+Engine/thruster feedback pass: player, enemy, and Boss movement now emits low-frequency solid exhaust chunks using the same confirmed opaque particle mechanism. Player exhaust responds to movement, firing, focus, and spin states; enemy and Boss exhaust are globally throttled and use stronger bursts only for heavier enemies or Boss attack charge. This restores flight motion energy without adding transparent trails, post effects, new shaders, or gameplay rule changes.
+
+Damage-state feedback pass: heavy enemies and Bosses now emit low-frequency solid vent sparks when their state becomes dangerous or visibly damaged. Enemy vents only appear after durable enemies have actually lost enough HP; Boss vents respond to accumulated damage, phase transition pressure, and attack state. This uses the same capped opaque particle pool, stays event/state-driven, and avoids full-screen flashes, smoke sheets, transparent glow trails, or new rendering passes.
+
+C1-safe HUD restoration pass: the gameplay HUD is back in the C1 scene as large opaque 3D geometry, not as DOM overlay or transparent screen-space planes. The first restored layer uses seven-segment solid digits for score and stage, chunky life pips, weapon icons, weapon-level pips, spin cooldown, laser heat, and an opaque Boss HP bar. This is intentionally functional and readable before being decorative; later UI art can improve presentation only after this solid-geometry HUD is physically confirmed stable on the C1.
+
+Local additive glow checkpoint: the first non-opaque effect layer is intentionally narrow. Player projectiles and Boss projectiles now carry a small additive glow shell around the existing solid projectile body, and the segmented laser has sparse local glow strips plus a small impact glow cap. Ordinary enemy bullet patterns, full-screen flashes, large transparent planes, bloom, and post effects are still disabled. This pass was physically accepted on the C1 by the user and is now the validated transparent baseline.
+
+Short local trail checkpoint: after the local glow layer was accepted, the next transparent mechanism adds only a very short additive trail mesh inside the projectile's own local transform. It is limited to player projectiles and Boss pressure projectiles, using the existing solid projectile body as the readable core. Ordinary enemy bullets still have no transparent trail, and the trail is not emitted as a particle system, so object count remains predictable and the rollback point is isolated if C1 fusion becomes unstable. This pass was also physically accepted on the C1 on 2026-04-29.
+
+Next transparent-effect rule: do not expand transparency to ordinary enemy bullets, explosions, engine plume sheets, screen-space flashes, bloom, blur, or post effects in the same batch. The next checkpoint should introduce only one new transparent mechanism and stop for physical C1 confirmation.
+
+## Future Enhancement Backlog
+
+Biome background art direction needs a full redesign after the current effect-restoration pass is stable. The current `C1SafeField` biome rows are intentional technical placeholders: they test whether larger opaque PBR background geometry can remain C1-stable and perceptible, but their final appearance does not yet match the desired stage themes or production art quality.
+
+Future biome art work should:
+
+- Establish a clear visual concept for each stage before adding more geometry.
+- Replace placeholder shape vocabulary with theme-specific silhouettes, landmarks, material language, and repeated motifs.
+- Keep the validated C1 constraints from this document: opaque PBR first, chunky depth-readable forms, no risky transparent sheets until the opaque baseline is complete.
+- Validate art changes by mechanism tier. Do not mix final biome art redesign with renderer, camera, post-processing, or transparency experiments in the same checkpoint.
+- Preserve the ordinary-screen debug metrics workflow so art density can be tuned against visible meshes, draw calls, and C1 rendered triangles.

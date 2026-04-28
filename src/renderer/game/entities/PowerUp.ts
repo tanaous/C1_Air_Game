@@ -49,6 +49,7 @@ export class PowerUp extends Entity {
 
   private light: THREE.PointLight | null = null
   private glowRing: THREE.Mesh | null = null
+  private attractStrength = 0
 
   constructor(scene: THREE.Scene, type: PowerUpType, x: number, y: number) {
     super()
@@ -82,18 +83,23 @@ export class PowerUp extends Entity {
       const speed = 70 + strength * 170
       this.velocity.x = THREE.MathUtils.lerp(this.velocity.x, (dx / d) * speed, alpha)
       this.velocity.y = THREE.MathUtils.lerp(this.velocity.y, (dy / d) * speed, alpha)
+      this.attractStrength = THREE.MathUtils.lerp(this.attractStrength, strength, alpha)
       return
     }
 
     this.velocity.x = THREE.MathUtils.lerp(this.velocity.x, 0, alpha * 0.45)
     this.velocity.y = THREE.MathUtils.lerp(this.velocity.y, -50, alpha * 0.45)
+    this.attractStrength = THREE.MathUtils.lerp(this.attractStrength, 0, alpha * 0.65)
   }
 
   update(dt: number): void {
     this.position.addScaledVector(this.velocity, dt)
     if (this.mesh) {
-      this.mesh.rotation.y += dt * 2.5
-      this.mesh.rotation.z += dt * 1.2
+      const attract = this.attractStrength
+      this.mesh.rotation.y += dt * (2.5 + attract * 4.2)
+      this.mesh.rotation.z += dt * (1.2 + attract * 2.8)
+      const pulse = 1 + attract * 0.18 + Math.sin(performance.now() / 220) * 0.035
+      this.mesh.scale.set(pulse, pulse, 1 + attract * 0.24)
     }
     if (this.glowRing) {
       this.glowRing.rotation.z -= dt * 1.8
@@ -222,8 +228,12 @@ function buildC1SafePowerUpGroup(type: PowerUpType): THREE.Group {
     emissiveIntensity: 0.25,
   })
   const bodyGeo = type === 'gem_large'
-    ? new THREE.BoxGeometry(14, 14, 18)
-    : new THREE.BoxGeometry(10, 10, 14)
+    ? new THREE.OctahedronGeometry(9, 0)
+    : type === 'gem_small'
+      ? new THREE.OctahedronGeometry(6.5, 0)
+      : type === 'bomb'
+        ? new THREE.DodecahedronGeometry(7.5, 0)
+        : new THREE.BoxGeometry(10, 10, 14)
   const body = new THREE.Mesh(bodyGeo, [coreMat, darkMat, capMat, coreMat, capMat, darkMat])
   body.name = 'powerup_core'
   body.frustumCulled = false
@@ -244,6 +254,20 @@ function buildC1SafePowerUpGroup(type: PowerUpType): THREE.Group {
     cross.position.z = 9.5
     cross.frustumCulled = false
     group.add(cross)
+  } else if (type === 'bomb') {
+    const fuse = new THREE.Mesh(new THREE.BoxGeometry(4, 9, 5), capMat)
+    fuse.name = 'powerup_symbol_fuse'
+    fuse.position.set(0, 6.5, 8.5)
+    fuse.rotation.z = 0.35
+    fuse.frustumCulled = false
+    group.add(fuse)
+  } else if (type.startsWith('weapon')) {
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(5, 10, 6), capMat)
+    tip.name = 'powerup_symbol_weapon_tip'
+    tip.position.set(0, 6.5, 9.5)
+    tip.rotation.z = Math.PI * 0.25
+    tip.frustumCulled = false
+    group.add(tip)
   }
 
   return group

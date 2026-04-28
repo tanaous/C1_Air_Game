@@ -109,7 +109,7 @@ export function createBossMaterials(type: string): BossMaterialSet {
       color: p.weakColor, roughness: 0.2, metalness: 0.62,
       clearcoat: 1, clearcoatRoughness: 0.08,
       emissive: p.weakEmissive, emissiveIntensity: 2.0,
-      transparent: true, opacity: 0.9,
+      transparent: false, opacity: 1,
       envMapIntensity: 0.95,
     }),
   }

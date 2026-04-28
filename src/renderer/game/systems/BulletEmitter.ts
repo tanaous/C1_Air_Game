@@ -5,6 +5,7 @@
 
 import { degToRad } from '@/utils/math'
 import { DEPTH_LAYERS } from '@/game/GameConfig'
+import type { EnemyBulletVisual } from '@/game/entities/Bullet'
 
 export type BulletPattern = 'aimed' | 'ring' | 'spiral' | 'fan' | 'curtain' | 'stream' | 'cross' | 'rose' | 'helix'
 
@@ -12,6 +13,7 @@ export interface EnemyBulletSpawn {
   x: number; y: number; z: number
   vx: number; vy: number
   isPlayer: false
+  visual: EnemyBulletVisual
 }
 
 export class BulletEmitter {
@@ -58,7 +60,7 @@ export class BulletEmitter {
 
   private aimed(ex: number, ey: number, z: number, spd: number, px: number, py: number): EnemyBulletSpawn[] {
     const dx = px - ex, dy = py - ey, len = Math.sqrt(dx * dx + dy * dy) || 1
-    return [{ x: ex, y: ey, z, vx: (dx / len) * spd, vy: (dy / len) * spd, isPlayer: false }]
+    return [{ x: ex, y: ey, z, vx: (dx / len) * spd, vy: (dy / len) * spd, isPlayer: false, visual: 'aimed' }]
   }
 
   private ring(ex: number, ey: number, z: number, spd: number): EnemyBulletSpawn[] {
@@ -66,7 +68,7 @@ export class BulletEmitter {
     const offset = this.burstCount * 0.15
     for (let i = 0; i < this.bulletCount; i++) {
       const a = (i / this.bulletCount) * Math.PI * 2 + offset
-      out.push({ x: ex, y: ey, z, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, isPlayer: false })
+      out.push({ x: ex, y: ey, z, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, isPlayer: false, visual: 'ring' })
     }
     return out
   }
@@ -77,7 +79,7 @@ export class BulletEmitter {
     const arms = 3
     for (let i = 0; i < arms; i++) {
       const a = this.spiralAngle + (i * Math.PI * 2) / arms
-      out.push({ x: ex, y: ey, z, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, isPlayer: false })
+      out.push({ x: ex, y: ey, z, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, isPlayer: false, visual: 'spiral' })
     }
     return out
   }
@@ -90,7 +92,7 @@ export class BulletEmitter {
     for (let i = 0; i < this.bulletCount; i++) {
       const t = this.bulletCount === 1 ? 0 : (i / (this.bulletCount - 1)) * 2 - 1
       const a = base + t * half
-      out.push({ x: ex, y: ey, z, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, isPlayer: false })
+      out.push({ x: ex, y: ey, z, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, isPlayer: false, visual: 'fan' })
     }
     return out
   }
@@ -100,7 +102,7 @@ export class BulletEmitter {
     const wave = Math.sin(this.burstCount * 0.5) * 15
     for (let i = 0; i < this.bulletCount; i++) {
       const off = (i - (this.bulletCount - 1) / 2) * 14 + wave
-      out.push({ x: ex + off, y: ey, z, vx: 0, vy: -spd, isPlayer: false })
+      out.push({ x: ex + off, y: ey, z, vx: 0, vy: -spd, isPlayer: false, visual: 'curtain' })
     }
     return out
   }
@@ -109,8 +111,8 @@ export class BulletEmitter {
     const dx = px - ex, dy = py - ey, len = Math.sqrt(dx * dx + dy * dy) || 1
     const nx = dx / len, ny = dy / len
     return [
-      { x: ex, y: ey, z, vx: nx * spd, vy: ny * spd, isPlayer: false },
-      { x: ex, y: ey, z, vx: nx * spd * 0.95 + ny * 15, vy: ny * spd * 0.95 - nx * 15, isPlayer: false },
+      { x: ex, y: ey, z, vx: nx * spd, vy: ny * spd, isPlayer: false, visual: 'stream' },
+      { x: ex, y: ey, z, vx: nx * spd * 0.95 + ny * 15, vy: ny * spd * 0.95 - nx * 15, isPlayer: false, visual: 'stream' },
     ]
   }
 
@@ -122,7 +124,7 @@ export class BulletEmitter {
       const base = (arm * Math.PI / 2) + rot
       for (let j = 0; j < 3; j++) {
         const a = base + (j - 1) * 0.08
-        out.push({ x: ex, y: ey, z, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, isPlayer: false })
+        out.push({ x: ex, y: ey, z, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, isPlayer: false, visual: 'cross' })
       }
     }
     return out
@@ -137,7 +139,7 @@ export class BulletEmitter {
       const r = Math.cos(k * theta)
       const a = theta
       const s = spd * (0.5 + Math.abs(r) * 0.5)
-      out.push({ x: ex, y: ey, z, vx: Math.cos(a) * s, vy: Math.sin(a) * s, isPlayer: false })
+      out.push({ x: ex, y: ey, z, vx: Math.cos(a) * s, vy: Math.sin(a) * s, isPlayer: false, visual: 'rose' })
     }
     return out
   }
@@ -148,8 +150,8 @@ export class BulletEmitter {
     const out: EnemyBulletSpawn[] = []
     for (let arm = 0; arm < 2; arm++) {
       const a = this.spiralAngle + arm * Math.PI
-      out.push({ x: ex, y: ey, z, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, isPlayer: false })
-      out.push({ x: ex, y: ey, z, vx: Math.cos(a + 0.15) * spd * 0.9, vy: Math.sin(a + 0.15) * spd * 0.9, isPlayer: false })
+      out.push({ x: ex, y: ey, z, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, isPlayer: false, visual: 'helix' })
+      out.push({ x: ex, y: ey, z, vx: Math.cos(a + 0.15) * spd * 0.9, vy: Math.sin(a + 0.15) * spd * 0.9, isPlayer: false, visual: 'helix' })
     }
     return out
   }

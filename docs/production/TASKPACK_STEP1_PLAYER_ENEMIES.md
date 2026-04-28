@@ -1,5 +1,11 @@
 # TASKPACK Step 1B：非 Boss 敌人与基础战斗视觉统一
 
+## 0. 2026-04-29 状态
+
+- 非 Boss 敌机、基础弹幕、命中、击毁、出场、资源反馈已按 C1-safe 实体 PBR / 实体粒子路线恢复。
+- 普通敌方子弹目前保持实体 projectile，不扩展透明拖尾；透明机制只验证到玩家/Boss 子弹局部 glow 和短拖尾。
+- 后续若扩展敌弹透明效果，必须作为新的 C1 检查点处理。
+
 ## 1. 前置条件
 
 本任务默认在 [TASKPACK_STEP1A_PLAYER_SHIP_REDESIGN.md](E:\AI\C1_Air_Game\C1_Air_Game\docs\production\TASKPACK_STEP1A_PLAYER_SHIP_REDESIGN.md) 通过后执行。

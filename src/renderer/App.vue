@@ -28,6 +28,38 @@
     </section>
 
     <section class="debug-section">
+      <div class="section-title">Performance</div>
+      <div class="debug-grid">
+        <span>FPS</span><strong :class="metricClass(debugDiagnostics?.performance?.fps, 30, 20, true)">{{ formatInt(debugDiagnostics?.performance?.fps) }}</strong>
+        <span>Frame</span><strong :class="metricClass(debugDiagnostics?.performance?.frameMs, 33.4, 50)">{{ formatMs(debugDiagnostics?.performance?.frameMs) }}</strong>
+        <span>Logic FPS</span><strong :class="metricClass(debugDiagnostics?.performance?.logicFps, 58, 50, true)">{{ formatInt(debugDiagnostics?.performance?.logicFps) }}</strong>
+        <span>Views</span><strong>{{ formatInt(debugDiagnostics?.render?.views) }}</strong>
+        <span>FPS gate</span><strong>30 target / 20 floor</strong>
+        <span>GPU caveat</span><strong>ignore FPS if external GPU &gt;30%</strong>
+        <span>Draw calls</span><strong :class="metricClass(debugDiagnostics?.render?.calls, 5000, 9000)">{{ formatInt(debugDiagnostics?.render?.calls) }}</strong>
+        <span>Render tris</span><strong :class="metricClass(debugDiagnostics?.render?.triangles, 3000000, 6000000)">{{ formatInt(debugDiagnostics?.render?.triangles) }}</strong>
+        <span>Lines</span><strong>{{ formatInt(debugDiagnostics?.render?.lines) }}</strong>
+        <span>Points</span><strong>{{ formatInt(debugDiagnostics?.render?.points) }}</strong>
+        <span>GPU resources</span><strong>{{ renderResourceLabel }}</strong>
+      </div>
+    </section>
+
+    <section class="debug-section">
+      <div class="section-title">Scene Load</div>
+      <div class="debug-grid">
+        <span>Objects</span><strong>{{ formatInt(debugDiagnostics?.scene?.objects) }}</strong>
+        <span>Meshes</span><strong>{{ formatInt(debugDiagnostics?.scene?.meshes) }}</strong>
+        <span>Visible meshes</span><strong :class="metricClass(debugDiagnostics?.scene?.visibleMeshes, 180, 280)">{{ formatInt(debugDiagnostics?.scene?.visibleMeshes) }}</strong>
+        <span>Materials</span><strong>{{ formatInt(debugDiagnostics?.scene?.materials) }}</strong>
+        <span>Scene tris</span><strong :class="metricClass(debugDiagnostics?.scene?.sourceTriangles, 90000, 150000)">{{ formatInt(debugDiagnostics?.scene?.sourceTriangles) }}</strong>
+        <span>Visible tris</span><strong :class="metricClass(debugDiagnostics?.scene?.visibleTriangles, 70000, 120000)">{{ formatInt(debugDiagnostics?.scene?.visibleTriangles) }}</strong>
+        <span>Gameplay counts</span><strong>{{ gameplayCountsLabel }}</strong>
+        <span>Runtime caps</span><strong>{{ runtimeCapsLabel }}</strong>
+        <span>Boss</span><strong>{{ debugDiagnostics?.scene?.bossActive ? 'active' : 'none' }}</strong>
+      </div>
+    </section>
+
+    <section class="debug-section">
       <div class="section-title">Device</div>
       <div class="debug-grid">
         <span>Source</span><strong>{{ debugDeviceParams ? 'ONLINE DEVICE PARAMS' : 'not received' }}</strong>
@@ -51,6 +83,22 @@
         <button type="button" class="toggle-btn" :class="{ active: debugSafeField }" @click="toggleSafeField">
           {{ debugSafeField ? 'Safe Field ON' : 'Safe Field OFF' }}
         </button>
+      </div>
+    </section>
+
+    <section class="debug-section">
+      <div class="section-title">Stage Director</div>
+      <div class="debug-grid">
+        <span>Stage</span><strong>{{ stageLabel }}</strong>
+        <span>Biome</span><strong>{{ debugDiagnostics?.stage?.biome ?? '-' }}</strong>
+        <span>Distance</span><strong>{{ stageDistanceLabel }}</strong>
+        <span>Next Boss</span><strong>{{ stageBossLabel }}</strong>
+      </div>
+      <div class="stage-actions">
+        <button type="button" @click="startRun">Start Run</button>
+        <button type="button" @click="restartRun">Restart Run</button>
+        <button type="button" @click="skipToBoss">Skip to Boss</button>
+        <button type="button" @click="advanceStage">Advance Stage</button>
       </div>
     </section>
 
@@ -216,6 +264,13 @@
       <div class="scanlines" />
     </div>
 
+    <div v-if="showGameOverlay && hudState.gameState === 'clear'" id="clear-overlay">
+      <div class="clear-text">MISSION CLEAR</div>
+      <div class="clear-score">FINAL SCORE<br />{{ hudState.score.toLocaleString() }}</div>
+      <div class="clear-hint">[ Z ] NEW RUN</div>
+      <div class="scanlines" />
+    </div>
+
     <div v-if="showGameOverlay && hudState.gameState === 'paused'" id="pause-overlay">
       <div class="pause-title">SYSTEM HALT</div>
       <div class="pause-hint">[ ESC ] RESUME</div>
@@ -288,6 +343,37 @@ const hudState: GameHUDState = reactive({
 const weaponLabel = computed(() => ({ shot: 'SHOT', spread: 'SPREAD', laser: 'LASER' }[hudState.weapon] || 'SHOT'))
 const bossHpPct = computed(() => Math.max(0, (hudState.bossHp / hudState.bossMaxHp) * 100))
 const showGameOverlay = computed(() => !hudState.c1Mode)
+const stageLabel = computed(() => {
+  const stage = debugDiagnostics.value?.stage
+  return stage ? `${stage.number}/10 ${stage.name}` : '-'
+})
+const stageDistanceLabel = computed(() => {
+  const stage = debugDiagnostics.value?.stage
+  return stage ? `${Math.floor(stage.distance)}m` : '-'
+})
+const stageBossLabel = computed(() => {
+  const stage = debugDiagnostics.value?.stage
+  if (!stage) return '-'
+  if (stage.cleared) return 'cleared'
+  if (stage.bossActive) return 'active'
+  if (stage.warning) return 'warning'
+  return `${Math.ceil(stage.distanceToBoss)}m`
+})
+const renderResourceLabel = computed(() => {
+  const render = debugDiagnostics.value?.render
+  if (!render) return '-'
+  return `geo ${formatInt(render.geometries)} / tex ${formatInt(render.textures)} / prog ${formatInt(render.programs)}`
+})
+const gameplayCountsLabel = computed(() => {
+  const scene = debugDiagnostics.value?.scene
+  if (!scene) return '-'
+  return `E ${formatInt(scene.enemies)} / PB ${formatInt(scene.playerBullets)} / EB ${formatInt(scene.enemyBullets)} / PU ${formatInt(scene.powerUps)} / FX ${formatInt(scene.particles)}`
+})
+const runtimeCapsLabel = computed(() => {
+  const caps = debugDiagnostics.value?.scene?.caps
+  if (!caps) return '-'
+  return `E ${caps.enemies} / PB ${caps.playerBullets} / EB ${caps.enemyBullets} / PU ${caps.powerUps} / FX ${caps.particles}`
+})
 
 let game: Game | null = null
 let diagnosticsTimer: number | null = null
@@ -330,6 +416,26 @@ function formatNumber(value: number | undefined, digits: number): string {
   return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '-'
 }
 
+function formatInt(value: number | undefined): string {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.round(value).toLocaleString() : '-'
+}
+
+function formatMs(value: number | undefined): string {
+  return typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(1)}ms` : '-'
+}
+
+function metricClass(value: number | undefined, warn: number, critical: number, lowerIsWorse = false): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return ''
+  if (lowerIsWorse) {
+    if (value <= critical) return 'metric-critical'
+    if (value <= warn) return 'metric-warn'
+    return 'metric-good'
+  }
+  if (value >= critical) return 'metric-critical'
+  if (value >= warn) return 'metric-warn'
+  return 'metric-good'
+}
+
 function publishDiagnostics(): void {
   const diagnostics = game?.getC1Diagnostics()
   if (!diagnostics) return
@@ -362,6 +468,22 @@ function toggleInvincible(): void {
 function toggleSafeField(): void {
   debugSafeField.value = !debugSafeField.value
   window.electronAPI?.sendC1Control({ type: 'set-safe-field', value: debugSafeField.value })
+}
+
+function startRun(): void {
+  window.electronAPI?.sendC1Control({ type: 'start-run' })
+}
+
+function restartRun(): void {
+  window.electronAPI?.sendC1Control({ type: 'restart-run' })
+}
+
+function skipToBoss(): void {
+  window.electronAPI?.sendC1Control({ type: 'skip-to-boss' })
+}
+
+function advanceStage(): void {
+  window.electronAPI?.sendC1Control({ type: 'advance-stage' })
 }
 
 function sendCameraRig(value: Partial<CameraRigSettings>): void {
@@ -695,7 +817,7 @@ button, input { font: inherit; }
   font-family: monospace;
 }
 
-#title-overlay, #gameover-overlay, #pause-overlay {
+#title-overlay, #gameover-overlay, #clear-overlay, #pause-overlay {
   position: absolute;
   inset: 0;
   display: flex;
@@ -796,6 +918,29 @@ button, input { font: inherit; }
   text-align: center;
   line-height: 1.4;
 }
+#clear-overlay { background: rgba(0, 18, 24, 0.55); }
+.clear-text {
+  font-size: clamp(88px, 11vw, 156px);
+  font-weight: 900;
+  letter-spacing: 12px;
+  color: var(--eva-green);
+  text-shadow: 0 0 30px var(--eva-green);
+  white-space: nowrap;
+}
+.clear-score {
+  font-size: clamp(58px, 7vw, 96px);
+  color: var(--eva-cyan);
+  margin-top: 34px;
+  text-align: center;
+  line-height: 1.35;
+}
+.clear-hint {
+  font-size: clamp(38px, 4.6vw, 58px);
+  color: var(--eva-orange);
+  margin-top: 30px;
+  letter-spacing: 6px;
+  animation: press-blink 1.5s step-end infinite;
+}
 #pause-overlay { background: rgba(0, 0, 20, 0.6); }
 .pause-title {
   font-size: clamp(96px, 12vw, 160px);
@@ -833,36 +978,37 @@ button, input { font: inherit; }
   width: 100vw;
   height: 100vh;
   overflow: auto;
-  padding: 24px;
+  padding: 12px;
   color: #d7dde7;
   background: #101317;
   font-family: Inter, 'Segoe UI', Arial, sans-serif;
+  font-size: 12px;
 }
 .debug-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 .debug-header h1 {
-  font-size: 28px;
+  font-size: 20px;
   line-height: 1.1;
   color: #ffffff;
   letter-spacing: 0;
 }
 .debug-header p {
-  margin-top: 6px;
-  font-size: 14px;
+  margin-top: 3px;
+  font-size: 11px;
   color: #8d99a8;
 }
 .status-pill {
   flex: 0 0 auto;
-  padding: 8px 12px;
+  padding: 5px 8px;
   border: 1px solid #3b4656;
   background: #171d24;
   color: #aeb9c8;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
 }
 .status-pill.connected { border-color: #278f5c; color: #42d991; }
@@ -871,23 +1017,23 @@ button, input { font: inherit; }
 .debug-section {
   border: 1px solid #27313d;
   background: #151a20;
-  padding: 16px;
-  margin-bottom: 14px;
+  padding: 9px;
+  margin-bottom: 8px;
 }
 .section-title {
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   color: #78c8ff;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 .debug-grid {
   display: grid;
-  grid-template-columns: minmax(130px, 0.42fr) minmax(0, 1fr);
-  gap: 9px 14px;
-  font-size: 15px;
-  line-height: 1.35;
+  grid-template-columns: minmax(78px, 0.34fr) minmax(0, 1fr) minmax(78px, 0.34fr) minmax(0, 1fr);
+  gap: 5px 10px;
+  font-size: 12px;
+  line-height: 1.22;
 }
 .debug-grid span { color: #8793a3; }
 .debug-grid strong {
@@ -895,18 +1041,22 @@ button, input { font: inherit; }
   font-weight: 650;
   word-break: break-word;
 }
+.debug-grid strong.metric-good { color: #42d991; }
+.debug-grid strong.metric-warn { color: #f2b24b; }
+.debug-grid strong.metric-critical { color: #ff6b8a; }
 .toggle-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(105px, 1fr));
+  gap: 6px;
 }
 .toggle-btn {
-  min-height: 42px;
-  padding: 0 14px;
+  min-height: 30px;
+  padding: 0 8px;
   border: 1px solid #3d4a59;
   background: #202833;
   color: #f4f7fb;
   cursor: pointer;
+  font-size: 12px;
 }
 .toggle-btn:hover { background: #283342; }
 .toggle-btn.active {
@@ -919,42 +1069,60 @@ button, input { font: inherit; }
   background: #3a2915;
   color: #f2b24b;
 }
-.parallax-row {
+.stage-actions {
   display: grid;
-  grid-template-columns: 42px minmax(160px, 1fr) 42px auto;
-  gap: 10px;
-  align-items: center;
+  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
 }
-.parallax-row button {
-  min-height: 38px;
-  padding: 0 12px;
+.stage-actions button {
+  min-height: 30px;
+  padding: 0 8px;
   border: 1px solid #3d4a59;
   background: #202833;
   color: #f4f7fb;
   cursor: pointer;
+  font-size: 12px;
+}
+.stage-actions button:hover { background: #283342; }
+.parallax-row {
+  display: grid;
+  grid-template-columns: 30px minmax(130px, 1fr) 30px auto;
+  gap: 6px;
+  align-items: center;
+}
+.parallax-row button {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid #3d4a59;
+  background: #202833;
+  color: #f4f7fb;
+  cursor: pointer;
+  font-size: 12px;
 }
 .parallax-row button:hover { background: #283342; }
-.parallax-row .reset-btn { min-width: 112px; }
+.parallax-row .reset-btn { min-width: 78px; }
 .parallax-row input { width: 100%; accent-color: #42d991; }
 .parallax-value {
-  margin-top: 12px;
-  font-size: 30px;
+  margin-top: 4px;
+  font-size: 18px;
   font-weight: 800;
   color: #42d991;
 }
 .preset-row {
   display: grid;
-  grid-template-columns: repeat(6, minmax(92px, 1fr));
-  gap: 8px;
-  margin-bottom: 14px;
+  grid-template-columns: repeat(6, minmax(68px, 1fr));
+  gap: 5px;
+  margin-bottom: 8px;
 }
 .preset-row button {
-  min-height: 36px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 6px;
   border: 1px solid #3d4a59;
   background: #202833;
   color: #f4f7fb;
   cursor: pointer;
+  font-size: 11px;
   text-transform: capitalize;
 }
 .preset-row button:hover { background: #283342; }
@@ -965,33 +1133,42 @@ button, input { font: inherit; }
 }
 .camera-controls {
   display: grid;
-  gap: 11px;
+  gap: 6px;
 }
 .camera-controls label {
   display: grid;
-  grid-template-columns: 82px minmax(160px, 1fr) 76px;
+  grid-template-columns: 62px minmax(120px, 1fr) 58px;
   align-items: center;
-  gap: 12px;
-  font-size: 14px;
+  gap: 8px;
+  font-size: 12px;
 }
 .camera-controls span { color: #8793a3; }
 .camera-controls input { width: 100%; accent-color: #78c8ff; }
 .locked-track {
-  min-height: 26px;
+  min-height: 22px;
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 7px;
   border: 1px solid #2d3744;
   background: #11161d;
   color: #5f6e7f;
-  font-size: 12px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 .locked-control span { color: #647284; }
 .camera-controls strong {
   color: #f2f6fb;
   font-weight: 750;
   text-align: right;
+}
+@media (max-width: 760px) {
+  .debug-grid {
+    grid-template-columns: minmax(72px, 0.42fr) minmax(0, 1fr);
+  }
+  .stage-actions,
+  .preset-row {
+    grid-template-columns: repeat(2, minmax(96px, 1fr));
+  }
 }
 </style>

@@ -18,6 +18,7 @@ function addMesh(
   mesh.rotation.copy(rot)
   mesh.scale.set(scale.x, scale.y, scale.z)
   mesh.castShadow = false; mesh.receiveShadow = false
+  mesh.frustumCulled = false
   parent.add(mesh)
   return mesh
 }

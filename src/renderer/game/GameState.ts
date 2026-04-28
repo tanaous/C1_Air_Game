@@ -1,4 +1,4 @@
-export type GameStateType = 'title' | 'playing' | 'paused' | 'boss' | 'gameover'
+export type GameStateType = 'title' | 'playing' | 'paused' | 'boss' | 'gameover' | 'clear'
 
 type Listener = (from: GameStateType, to: GameStateType) => void
 

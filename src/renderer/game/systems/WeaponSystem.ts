@@ -7,6 +7,7 @@
 import type { WeaponType } from '@shared/types'
 import { DEPTH_LAYERS } from '@/game/GameConfig'
 import { degToRad } from '@/utils/math'
+import type { PlayerBulletVisual } from '@/game/entities/Bullet'
 
 export interface BulletSpawn {
   x: number; y: number; z: number
@@ -15,6 +16,7 @@ export interface BulletSpawn {
   isPlayer: true
   isLaser?: boolean
   width?: number
+  visual?: PlayerBulletVisual
 }
 
 const SHOT_RATES   = [0.10, 0.09, 0.08, 0.07, 0.06]
@@ -98,7 +100,8 @@ export class WeaponSystem {
     const out: BulletSpawn[] = []
     for (let i = 0; i < count; i++) {
       const off = (i - (count - 1) / 2) * gap
-      out.push({ x: px + off, y: py + 12, z, vx: 0, vy: spd, damage: dmg, isPlayer: true })
+      const depth = count === 1 ? 0 : (i - (count - 1) / 2) * 1.8
+      out.push({ x: px + off, y: py + 12, z: z + depth, vx: 0, vy: spd, damage: dmg, isPlayer: true, visual: 'player_shot' })
     }
     return out
   }
@@ -111,7 +114,7 @@ export class WeaponSystem {
     for (let i = 0; i < count; i++) {
       const t = count === 1 ? 0 : (i / (count - 1)) * 2 - 1
       const rad = degToRad(90 + t * (totalAngle / 2))
-      out.push({ x: px, y: py + 8, z, vx: Math.cos(rad) * spd, vy: Math.sin(rad) * spd, damage: dmg, isPlayer: true })
+      out.push({ x: px, y: py + 8, z: z + t * 3.6, vx: Math.cos(rad) * spd, vy: Math.sin(rad) * spd, damage: dmg, isPlayer: true, visual: 'player_spread' })
     }
     return out
   }
